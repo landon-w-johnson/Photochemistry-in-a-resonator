@@ -1,0 +1,43 @@
+SYSTEM=SiC DiVac Coupling
+
+# Type of Job
+
+ISPIN=2
+
+IBRION=0
+MDALGO=0
+SMASS=-3
+ISIF=2
+
+ALGO=Damped
+LDIAG=.FALSE.
+TIME=0.1
+NELMDL=2
+#LSUBROT=.TRUE.
+
+
+
+# Electronic Relaxation
+
+ISMEAR=-2
+EDIFF=0.000001
+NELM=120
+
+
+
+# Ionic Relaxation
+
+NSW=1
+POTIM=0.01
+
+
+
+# Other parameters
+
+NBANDS=128
+NPAR=2
+ISTART=2
+IDIPOL=3
+ISYM=0
+LWAVE = .TRUE.
+#LCHARG = .TRUE.

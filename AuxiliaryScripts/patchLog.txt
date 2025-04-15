@@ -1,0 +1,51 @@
+v0.1 (The engine is running but with incorrect calculations):
+
+The code successfully runs on Cori, albeit with known issues.
+The core functionality of running VASP, reading from WAVECAR, updating, then writing back into WAVECAR and re-running VASP is present.
+Transition dipole moments are actually calculated.
+
+
+
+v0.2 (The engine is running correctly):
+
+Band expansion coefficients are output and utilized to track phase.
+twoLevelSystem.sh modified so that the code can be run on NERSC or CCAST.
+makeTrajectoryGrid.sh will automatically create subdirectories for different initial conditions and submit the jobs in them.
+RWA scheme implemented and run separately from non-RWA scheme since the RWA is made to find analytical solution.
+firstTimeStep.f updated to import run-time parameters from PHOTCAR file and rewrite tags into updateWAVECAR.f explicitly so that twoLevelSystem.sh can recompile updateWAVECAR.f with hard-coded tags.
+
+
+
+v0.3 (Utilizes PHOTCAR file to read inputs similarly to how VASP reads INCAR):
+
+Incorporated Verlet method to firstTimeStep.f and updateWAVECAR.f. Under minimal verification, the Verlet method appears to be working at least mostly correctly.
+Incorporated Runge-Kutta 4th order method into firstTimeStep.f and updateWAVECAR.f.
+Incorporated Runge-Kutta 2nd order method into firstTimeStep.f and updateWAVECAR.f.
+twoLevelSystem.sh updated to print run times of VASP, firstTimeStep.exe, and updateWAVECAR.exe for benchmarking purposes.
+
+
+
+v0.4 (Multiple iteration schemes are implemented along with run-time tracking for benchmarking purposes):
+
+firstTimeStep.f updated to print header line in dataFile.txt; updateWAVECAR.f updated to skip header line when reading in time step & current time.
+updated twoLevelSystem.sh to grab information about forces on nuclei from OUTCAR and write them to console (i.e. PBS output file or slurm output file, NOT outputFile.txt).
+updated twoLevelSystem.sh to save copies of CHG file after each VASP run so that electron density can be visualized through time.
+
+
+
+v0.5 (Automatically tracks certain data points of interest that are not explicitly calculated through the custom code):
+
+VASP's plane waves are more stable with the following INCAR tags:
+ALGO=Damped
+LDIAG=.FALSE.
+updateWAVECAR.f updated to take band-by-band inner product of new plane wave expansion against old plane wave expansion and flip signs of all PW coefficients for new band if necessary.
+Discovered that exciting to or from a degenerate band causes unpredictable switching of degenerate bands, causing instabilities when using PW coefficients.
+
+
+
+v0.6 (Works when VASP has more than 2 bands in its calculations and appears to work when ions are allowed to move)
+
+twoLevelSystem.sh updated to print all outputs to outputFile.txt so all data can be monitored mid-run
+
+
+v0.7 (Performs TDPT on bands that the user specifies in PHOTCAR. These bands are specified via the "bands" tag and must be entered as a two-element space-separated array in ascending order)

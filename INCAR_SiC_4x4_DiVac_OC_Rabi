@@ -1,0 +1,35 @@
+SYSTEM=H2+ Coupling
+
+
+# Type of Job
+
+ISPIN=2
+
+ALGO=Damped
+LDIAG=.FALSE.
+TIME=0.4
+
+
+
+# Electronic Relaxation
+
+ISMEAR=-2
+
+
+
+# Ionic Relaxation
+
+NSW=0
+
+
+
+# Other parameters
+
+NBANDS=128
+NPAR=2
+
+ISTART=2
+IDIPOL=3
+ISYM=0
+LWAVE = .TRUE.
+#LCHARG = .TRUE.

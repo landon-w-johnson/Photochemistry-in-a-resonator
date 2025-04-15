@@ -1,0 +1,11 @@
+E = <tmp> # max/initial E-field amplitude
+
+timeStep = <tmp> # time step in fs
+
+omega = <tmp> # driving frequency of E-field
+
+RWA = .FALSE. # .TRUE. to utilize RWA, .FALSE. otherwise
+
+itScheme = 1 # iteration scheme, 1=Euler, 2=Verlet, 3=Runge-Kutta 2nd order, 4=Runge-Kutta 4th order
+
+CHGint = 500 # interval to save CHG files. 0=don't save them
