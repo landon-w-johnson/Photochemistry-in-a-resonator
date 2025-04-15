@@ -1,6 +1,10 @@
       MODULE pointerAssignments
       
       IMPLICIT NONE
+
+      TYPE :: allocVal
+         CHARACTER(LEN=:), ALLOCATABLE :: val
+      END TYPE allocVal
       
       CONTAINS
       
@@ -10,6 +14,16 @@
       READ(val, *) pnt
       NULLIFY(pnt)
       END SUBROUTINE assignINT
+
+      SUBROUTINE assignINTarray(pnt,valArr)
+      INTEGER, DIMENSION(:), POINTER, INTENT(INOUT) :: pnt
+      TYPE(allocVal), DIMENSION(:), INTENT(IN) :: valArr
+      INTEGER :: index
+      DO index = 1,SIZE(valArr)
+         READ(valArr(index)%val, *) pnt(index)
+      END DO
+      NULLIFY(pnt)
+      END SUBROUTINE assignINTarray
 
       SUBROUTINE assignLOGICAL(pnt,val)
       LOGICAL, POINTER, INTENT(INOUT) :: pnt
@@ -50,7 +64,7 @@
       INTEGER :: endOfPhotcar, fileSize, ioErr
       INTEGER :: newLineCount, lineNum, strLen
       INTEGER :: commentInd, assignmentInd, numTotalTags
-      INTEGER :: updateNewLineCount
+      INTEGER :: updateNewLineCount, wsInd
       INTEGER, ALLOCATABLE :: newLineIndices(:), tempNewLineIndices(:)
       REAL(8) :: recordLength, ispin, singleOrDouble, numKPoints
       REAL(8) :: numBands, enMax, eFermi, numPlaneWaves
@@ -71,8 +85,10 @@
       COMPLEX(8), ALLOCATABLE :: px(:,:), py(:,:), pz(:,:)
       CHARACTER(LEN=:), ALLOCATABLE :: photcarStr, updateStr
       CHARACTER(LEN=:), ALLOCATABLE :: tempKey, tempVal
-      CHARACTER(LEN=72) :: tempStr
+      CHARACTER(LEN=72) :: tempStr, dipoleFmt, dataFileFmt
+      CHARACTER(LEN=72), DIMENSION(2) :: tempStrArray
       CHARACTER(LEN=:), ALLOCATABLE :: tempSubStr1, tempSubStr2
+      LOGICAL :: gsUpdated=.FALSE., esUpdated=.FALSE.
       
       REAL(8), PARAMETER :: pi = 3.1415926
       COMPLEX(4), PARAMETER :: im = (0,1)
@@ -86,13 +102,16 @@
       LOGICAL, TARGET :: RWA
       REAL(8), TARGET :: E, timeStep, omega
       INTEGER, TARGET :: itScheme
+      INTEGER, DIMENSION(:), ALLOCATABLE, TARGET :: bandArray
 
       TYPE :: tagStruct
-          CHARACTER(LEN=:), ALLOCATABLE :: key, val
-          LOGICAL, POINTER :: lpnt
-          REAL(8), POINTER :: rpnt
-          INTEGER, POINTER :: ipnt
-          LOGICAL :: used=.FALSE., updated=.FALSE.
+         CHARACTER(LEN=:), ALLOCATABLE :: key, val
+         TYPE(allocVal), DIMENSION(:), ALLOCATABLE :: valArr
+         LOGICAL, POINTER :: lpnt => NULL()
+         REAL(8), POINTER :: rpnt => NULL()
+         INTEGER, POINTER :: ipnt => NULL()
+         INTEGER, DIMENSION(:), POINTER :: iArrPnt => NULL()
+         LOGICAL :: used=.FALSE., updated=.FALSE.
       END TYPE tagStruct
       
       TYPE :: photcar
@@ -151,24 +170,31 @@
 !!!!! Default parameter values !!!!!
       
       E = 0.01
-      timeStep = 0.001         !time step in femptoseconds
-      omega = 0.5
+      timeStep = 0.01         !time step in femptoseconds
+      omega = 0.2
       RWA = .FALSE.
-      itScheme = 2
+      itScheme = 1
+      ALLOCATE(bandArray(2))
+      DO i=1,SIZE(bandArray)
+         bandArray(i) = i
+      END DO
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      numTotalTags = 5 !!!!!!!! UPDATE THIS W/ NEW PHOTCAR TAGS !!!!!!!!
+      numTotalTags = 6 !!!!!!!! UPDATE THIS W/ NEW PHOTCAR TAGS !!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       
 !!!!! Instantiate the PHOTCAR parameter data structure !!!!!
       
       ALLOCATE(photcarParams%tags(numTotalTags))
       
-      DO i=1,numTotalTags
-         NULLIFY(photcarParams%tags(i)%rpnt)
-         NULLIFY(photcarParams%tags(i)%lpnt)
-         NULLIFY(photcarParams%tags(i)%ipnt)
-      END DO
+!      DO i=1,numTotalTags
+!         NULLIFY(photcarParams%tags(i)%rpnt)
+!         NULLIFY(photcarParams%tags(i)%lpnt)
+!         NULLIFY(photcarParams%tags(i)%ipnt)
+!         NULLIFY(photcarParams%tags(i)%iArrPnt)
+!         ALLOCATE(photcarParams%tags(i)%valArr(SIZE(bandArray)))
+!      END DO
+      ALLOCATE(photcarParams%tags(6)%valArr(SIZE(bandArray)))
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!! UPDATE THESE W/ NEW PHOTCAR TAGS !!!!!!!!!!!!!!!!!!!
@@ -184,6 +210,8 @@
       photcarParams%tags(4)%lpnt => RWA
       photcarParams%tags(5)%key = "itScheme"
       photcarParams%tags(5)%ipnt => itScheme
+      photcarParams%tags(6)%key = "bands"
+      photcarParams%tags(6)%iArrPnt => bandArray
 
 
 
@@ -200,17 +228,25 @@
             ELSE IF (photcarParams%tags(i)%lpnt.EQV..FALSE.) THEN
                tempStr = ".FALSE."
             ELSE
-               PRINT *, "Found non-LOGICAL value for tag"//
+               WRITE(*,*) "Found non-LOGICAL value for tag"//
      $              photcarParams%tags(i)%key
                STOP 2
             END IF
             photcarParams%tags(i)%val = TRIM(ADJUSTL(tempStr))
-         ELSE
+         ELSE IF (ASSOCIATED(photcarParams%tags(i)%ipnt)) THEN
             WRITE(tempStr,'(I1)') photcarParams%tags(i)%ipnt
             photcarParams%tags(i)%val = TRIM(ADJUSTL(tempStr))
+         ELSE
+            WRITE(tempStrArray,'(I10.1)') photcarParams%tags(i)%iArrPnt
+            DO j=1,SIZE(tempStrArray)
+               photcarParams%tags(i)%valArr(j)%val =
+     $              TRIM(ADJUSTL(tempStrArray(j)))
+               !WRITE(*,*) 'valArr defaults:'
+               !WRITE(*,*) photcarParams%tags(i)%valArr(j)%val
+            END DO
          END IF
       END DO
-
+      
       
       
       
@@ -245,26 +281,37 @@
                IF (tempKey.EQ.photcarParams%tags(k)%key) THEN
                   ! Check for matching key !
                   photcarParams%tags(k)%used = .TRUE.
-                  photcarParams%tags(k)%val = tempVal
-                  valLen = LEN(photcarParams%tags(k)%val)
-                  IF (photcarParams%tags(k)%val(1:1).EQ."." .AND.
-     $                 photcarParams%tags(k)%val(valLen:valLen).EQ.".")
-     $                 THEN
-                     ! Assign value through logical pointer !
-                     CALL assignLOGICAL(photcarParams%tags(k)%lpnt,
-     $                    photcarParams%tags(k)%val)
-                     EXIT
-                  ELSE IF (INDEX(photcarParams%tags(k)%val, ".").NE.0)
+                  wsInd = INDEX(tempVal, " ")
+                  IF (wsInd.EQ.0) THEN
+                     photcarParams%tags(k)%val = tempVal
+                     IF (ASSOCIATED(photcarParams%tags(k)%lpnt))
      $                    THEN
-                     ! Assign value through double pointer !
-                     CALL assignDOUBLE(photcarParams%tags(k)%rpnt,
-     $                    photcarParams%tags(k)%val)
-                     EXIT
+                        ! Assign value through logical pointer !
+                        CALL assignLOGICAL(photcarParams%tags(k)%lpnt,
+     $                       photcarParams%tags(k)%val)
+                        EXIT
+                     ELSE IF (ASSOCIATED(photcarParams%tags(k)%rpnt))
+     $                       THEN
+                        ! Assign value through double pointer !
+                        CALL assignDOUBLE(photcarParams%tags(k)%rpnt,
+     $                       photcarParams%tags(k)%val)
+                        EXIT
+                     ELSE
+                        ! Assign value through integer pointer !
+                        CALL assignINT(photcarParams%tags(k)%ipnt,
+     $                       photcarParams%tags(k)%val)
+                        EXIT
+                     END IF
                   ELSE
-                     ! Assign value through integer pointer !
-                     CALL assignINT(photcarParams%tags(k)%ipnt,
-     $                    photcarParams%tags(k)%val)
-                     EXIT
+                     !WRITE(*,*) "entering array assignment"
+                     photcarParams%tags(k)%valArr(1)%val =
+     $                    tempVal(1:wsInd-1)
+                     photcarParams%tags(k)%valArr(2)%val =
+     $                    tempVal(wsInd+1:LEN(tempVal))
+                     ! Assign array of vals through int array pointer !
+                     CALL assignINTarray(
+     $                    photcarParams%tags(k)%iArrPnt,
+     $                    photcarParams%tags(k)%valArr)
                   END IF
                END IF
             END DO
@@ -277,11 +324,12 @@
       
 !!!!! Print values of tags !!!!!
       
-      PRINT *, "E = ", E
-      PRINT *, "timeStep = ", timeStep
-      PRINT *, "omega = ", omega
-      PRINT *, "RWA = ", RWA
-      PRINT *, "itScheme = ", itScheme
+      WRITE(*,'(T1,A,ES23.16E3)') "E = ", E
+      WRITE(*,'(T1,A,ES23.16E3)') "timeStep = ", timeStep
+      WRITE(*,'(T1,A,ES23.16E3)') "omega = ", omega
+      WRITE(*,'(T1,A,L1)') "RWA = ", RWA
+      WRITE(*,'(T1,A,I0.1)') "itScheme = ", itScheme
+      WRITE(*,'(T1,A,2I5)') "bandArray = ", bandArray
       
       dt = timeStep*41.341374575751
       
@@ -335,6 +383,73 @@
             ! Look through potential tags that might be on this line !
             IF (.NOT.photcarParams%tags(i)%updated) THEN
                ! Ignore tags that have already been set !
+               IF (photcarParams%tags(i)%key.EQ."bands") THEN
+                  IF (INDEX(tempStr,"      bandArray(1) =").NE.0) THEN
+                     BACKSPACE 2
+                     WRITE(2,FMT='(A)') "      bandArray(1) = "//
+     $                    photcarParams%tags(i)%valArr(1)%val
+                     gsUpdated = .TRUE.
+                     k = 0
+                     DO j=1,fileSize
+                        ! Loop through string of updateWAVECAR.f !
+                        IF (updateStr(j:j).EQ.NEW_LINE("")) THEN
+                           ! Find newline chars in the string !
+                           k = k+1
+                           IF (k.EQ.lineNum) THEN
+                             ! Found current file position in string !
+                             ! Rewrite the rest of file from string !
+                              WRITE(2,FMT='(A)')
+     $                             updateStr(j+1:fileSize)
+                              ! Return to previous position in the file !
+                              CLOSE(2)                           
+                              OPEN(UNIT=2,
+     $                             FILE='updateWAVECAR.f',
+     $                             ACCESS='sequential',
+     $                             STATUS='old',
+     $                             FORM='formatted')
+                              DO k=1,lineNum
+                                 READ(2,FMT='(A)',IOSTAT=ios) tempStr
+                              END DO
+                              EXIT
+                           END IF
+                        END IF
+                     END DO
+                  ELSE IF (INDEX(tempStr,"      bandArray(2) =").NE.0)
+     $                    THEN
+                     BACKSPACE 2
+                     WRITE(2,FMT='(A)') "      bandArray(2) = "//
+     $                    photcarParams%tags(i)%valArr(2)%val
+                     esUpdated = .TRUE.
+                     k = 0
+                     DO j=1,fileSize
+                        ! Loop through string of updateWAVECAR.f !
+                        IF (updateStr(j:j).EQ.NEW_LINE("")) THEN
+                           ! Find newline chars in the string !
+                           k = k+1
+                           IF (k.EQ.lineNum) THEN
+                              ! Found current file position in string !
+                              ! Rewrite the rest of file from string !
+                              WRITE(2,FMT='(A)')
+     $                             updateStr(j+1:fileSize)
+                              ! Return to previous position in the file !
+                              CLOSE(2)                           
+                              OPEN(UNIT=2,
+     $                             FILE='updateWAVECAR.f',
+     $                             ACCESS='sequential',
+     $                             STATUS='old',
+     $                             FORM='formatted')
+                              DO k=1,lineNum
+                                 READ(2,FMT='(A)',IOSTAT=ios) tempStr
+                              END DO
+                              EXIT
+                           END IF
+                        END IF
+                     END DO
+                  END IF
+                  IF (gsUpdated.AND.esUpdated) THEN
+                     photcarParams%tags(i)%updated = .TRUE.
+                  END IF
+               END IF
                strLen = LEN("      "//photcarParams%tags(i)%key//" =")
                ALLOCATE(CHARACTER(LEN=strLen) :: tempSubStr1)
                ALLOCATE(CHARACTER(LEN=strLen-1) :: tempSubStr2)
@@ -483,10 +598,11 @@
       ALLOCATE(zMom(npw))
       ALLOCATE(totMom(npw))
 
-      WRITE(*,*) 'numPlaneWaves=', numPlaneWaves, 'npw=', npw
+      WRITE(*,'(T1,A,F18.4)') 'numPlaneWaves = ', numPlaneWaves
+      WRITE(*,'(T1,A,I0.1)') 'npw = ', npw
       
-      bCoef(1) = SQRT(occ(1,1))
-      bCoef(2) = SQRT(occ(2,1))
+      bCoef(bandArray(1)) = SQRT(occ(bandArray(1),1))
+      bCoef(bandArray(2)) = SQRT(occ(bandArray(2),1))
 
       DO i=4,3+nb
          READ(21,REC=i) (pwCoef(i-3,j),j=1,npw)
@@ -591,38 +707,77 @@
       END DO
       
       DO i=1,npw
-         px(1,2) = px(1,2) + CONJG(pwCoef(1,i))*xMom(i)*pwCoef(2,i)
-     $        - pwCoef(1,i)*xMom(i)*CONJG(pwCoef(2,i))
-         px(2,1) = px(2,1) + CONJG(pwCoef(2,i))*xMom(i)*pwCoef(1,i)
-     $        - pwCoef(2,i)*xMom(i)*CONJG(pwCoef(1,i))
-         py(1,2) = py(1,2) + CONJG(pwCoef(1,i))*yMom(i)*pwCoef(2,i)
-     $        - pwCoef(1,i)*yMom(i)*CONJG(pwCoef(2,i))
-         py(2,1) = py(2,1) + CONJG(pwCoef(2,i))*yMom(i)*pwCoef(1,i)
-     $        - pwCoef(2,i)*yMom(i)*CONJG(pwCoef(1,i))
-         pz(1,2) = pz(1,2) + CONJG(pwCoef(1,i))*zMom(i)*pwCoef(2,i)
-     $        - pwCoef(1,i)*zMom(i)*CONJG(pwCoef(2,i))
-         pz(2,1) = pz(2,1) + CONJG(pwCoef(2,i))*zMom(i)*pwCoef(1,i)
-     $        - pwCoef(2,i)*zMom(i)*CONJG(pwCoef(1,i))
+         px(bandArray(1),bandArray(2)) =
+     $        px(bandArray(1),bandArray(2)) +
+     $        CONJG(pwCoef(bandArray(1),i))*xMom(i)*
+     $        pwCoef(bandArray(2),i) -
+     $        pwCoef(bandArray(1),i)*xMom(i)*
+     $        CONJG(pwCoef(bandArray(2),i))
+         px(bandArray(2),bandArray(1)) =
+     $        px(bandArray(2),bandArray(1)) +
+     $        CONJG(pwCoef(bandArray(2),i))*xMom(i)*
+     $        pwCoef(bandArray(1),i) -
+     $        pwCoef(bandArray(2),i)*xMom(i)*
+     $        CONJG(pwCoef(bandArray(1),i))
+         py(bandArray(1),bandArray(2)) =
+     $        py(bandArray(1),bandArray(2)) +
+     $        CONJG(pwCoef(bandArray(1),i))*yMom(i)*
+     $        pwCoef(bandArray(2),i) -
+     $        pwCoef(bandArray(1),i)*yMom(i)*
+     $        CONJG(pwCoef(bandArray(2),i))
+         py(bandArray(2),bandArray(1)) =
+     $        py(bandArray(2),bandArray(1)) +
+     $        CONJG(pwCoef(bandArray(2),i))*yMom(i)*
+     $        pwCoef(bandArray(1),i) -
+     $        pwCoef(bandArray(2),i)*yMom(i)*
+     $        CONJG(pwCoef(bandArray(1),i))
+         pz(bandArray(1),bandArray(2)) =
+     $        pz(bandArray(1),bandArray(2)) +
+     $        CONJG(pwCoef(bandArray(1),i))*zMom(i)*
+     $        pwCoef(bandArray(2),i) -
+     $        pwCoef(bandArray(1),i)*zMom(i)*
+     $        CONJG(pwCoef(bandArray(2),i))
+         pz(bandArray(2),bandArray(1)) =
+     $        pz(bandArray(2),bandArray(1)) +
+     $        CONJG(pwCoef(bandArray(2),i))*zMom(i)*
+     $        pwCoef(bandArray(1),i) -
+     $        pwCoef(bandArray(2),i)*zMom(i)*
+     $        CONJG(pwCoef(bandArray(1),i))
       END DO
-      WRITE(*,*) 'px(1,2)=', px(1,2)
-      WRITE(*,*) 'px(2,1)=', px(2,1)
-      WRITE(*,*) 'py(1,2)=', py(1,2)
-      WRITE(*,*) 'py(2,1)=', py(2,1)
-      WRITE(*,*) 'pz(1,2)=', pz(1,2)
-      WRITE(*,*) 'pz(2,1)=', pz(2,1)
       
-      omega_0 = 0.0367494*(bandEn(2,1)-bandEn(1,1))/hbar !eV to au
-      WRITE(*,*) 'omega_0=', omega_0
+      dipoleFmt =
+     $     '(T1,A,I0.1,A,I0.1,A,"( ",ES23.15E3," , ",ES23.15E3," )")'
+      WRITE(*,dipoleFmt)
+     $     'px(',bandArray(1),',',bandArray(2),') = ',
+     $     px(bandArray(1),bandArray(2))
+      WRITE(*,dipoleFmt)
+     $     'px(',bandArray(2),',',bandArray(1),') = ',
+     $     px(bandArray(2),bandArray(1))
+      WRITE(*,dipoleFmt) 'py(',bandArray(1),',',bandArray(2),') = ',
+     $     py(bandArray(1),bandArray(2))
+      WRITE(*,dipoleFmt) 'py(',bandArray(2),',',bandArray(1),') = ',
+     $     py(bandArray(2),bandArray(1))
+      WRITE(*,dipoleFmt) 'pz(',bandArray(1),',',bandArray(2),') = ',
+     $     pz(bandArray(1),bandArray(2))
+      WRITE(*,dipoleFmt) 'pz(',bandArray(2),',',bandArray(1),') = ',
+     $     pz(bandArray(2),bandArray(1))
+      
+      omega_0 = 0.0367494*
+     $     (bandEn(bandArray(2),1)-bandEn(bandArray(1),1))/hbar !eV to au
+      WRITE(*,'(T1,A,F18.14)') 'omega_0 = ', omega_0
 
       phaseE = 1.0
 
-      d_bCoef(1) = 0
+      d_bCoef(bandArray(1)) = 0
       IF (RWA) THEN
-         d_bCoef(2) = (q*E/(2*m*hbar*omega_0))*pz(2,1)
+         d_bCoef(bandArray(2)) = (q*E/(2*m*hbar*omega_0))*
+     $        pz(bandArray(2),bandArray(1))
       ELSE
-         d_bCoef(2) = (q*E/(m*hbar*omega_0))*pz(2,1)
+         d_bCoef(bandArray(2)) = (q*E/(m*hbar*omega_0))*
+     $        pz(bandArray(2),bandArray(1))
       END IF
-      WRITE(*,*) 'd_bCoef(2)=', d_bCoef(2)
+      WRITE(*,'(T1,A,I0.1,A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $     'd_bCoef(',bandArray(2),') = ', d_bCoef(bandArray(2))
       
       
       
@@ -632,104 +787,124 @@
       
       IF (itScheme.EQ.1) THEN   ! Euler
 !         new_bCoef(1) = bCoef(1) + dt*d_bCoef(1)
-         new_bCoef(2) = bCoef(2) + dt*d_bCoef(2)
-         new_bCoef(1) = SQRT((1,0) - CONJG(new_bCoef(2))*new_bCoef(2))
+         new_bCoef(bandArray(2)) = bCoef(bandArray(2)) +
+     $        dt*d_bCoef(bandArray(2))
+         new_bCoef(bandArray(1)) = SQRT((1,0) -
+     $        CONJG(new_bCoef(bandArray(2)))*new_bCoef(bandArray(2)))
       ELSE IF (itScheme.EQ.2) THEN ! Verlet
          ALLOCATE(d2_bCoef(nb))
          IF (RWA) THEN
             PRINT *, "Solving for d^2/dt under RWA"
-            d2_bCoef(1) = -((q**2)*(E**2)*pz(1,2)*pz(2,1))/
+            d2_bCoef(bandArray(1)) = -((q**2)*(E**2)*
+     $           pz(bandArray(1),bandArray(2))*
+     $           pz(bandArray(2),bandArray(1)))/
      $           (4*m**2*hbar**2*omega_0**2)
-            d2_bCoef(2) = (q*E*i*(omega-omega_0)*pz(2,1))/
+            d2_bCoef(bandArray(2)) = (q*E*i*(omega-omega_0)*
+     $           pz(bandArray(2),bandArray(1)))/
      $           (2*m*hbar*omega_0)
          ELSE
             PRINT *, "Solving for d^2/dt without RWA"
-            d2_bCoef(1) = -((q**2)*(E**2)*pz(1,2)*pz(2,1))/
+            d2_bCoef(bandArray(1)) = -((q**2)*(E**2)*
+     $           pz(bandArray(1),bandArray(2))*
+     $           pz(bandArray(2),bandArray(1)))/
      $           ((m**2)*(hbar**2)*(omega_0**2))
-            d2_bCoef(2) = (q*E*im)/(m*hbar)
+            d2_bCoef(bandArray(2)) = (q*E*im)/(m*hbar)
          END IF
-         PRINT *, "d_bCoef(2) = ", d_bCoef(2)
+         PRINT *, 'd_bCoef(',bandArray(2),') = ', d_bCoef(bandArray(2))
          PRINT *, "dt = ", dt
-         PRINT *, "d2_bCoef(1) = ", d2_bCoef(1)
-         PRINT *, "d2_bCoef(2) = ", d2_bCoef(2)
-         tempComplex = d_bCoef(2)*dt
-         PRINT *, "d_bCoef(2)*dt = ", tempComplex
-         tempComplex = 0.5*d2_bCoef(2)*dt**2
-         PRINT *, "0.5*d2_bCoef(2)*dt**2 = ", tempComplex
-         new_bCoef(1) = bCoef(1) + d_bCoef(1)*dt +
-     $        0.5*d2_bCoef(1)*dt**2
-         new_bCoef(2) = bCoef(2) + d_bCoef(2)*dt +
-     $        0.5*d2_bCoef(2)*dt**2
+         PRINT *, 'd2_bCoef(',bandArray(1),') = ',
+     $        d2_bCoef(bandArray(1))
+         PRINT *, 'd2_bCoef(',bandArray(2),') = ',
+     $        d2_bCoef(bandArray(2))
+         tempComplex = d_bCoef(bandArray(2))*dt
+         PRINT *, 'd_bCoef(',bandArray(2),')*dt = ', tempComplex
+         tempComplex = 0.5*d2_bCoef(bandArray(2))*dt**2
+         PRINT *, '0.5*d2_bCoef(',bandArray(2),')*dt**2 = ',
+     $        tempComplex
+         new_bCoef(bandArray(1)) = bCoef(bandArray(1)) +
+     $        d_bCoef(bandArray(1))*dt +
+     $        0.5*d2_bCoef(bandArray(1))*dt**2
+         new_bCoef(bandArray(2)) = bCoef(bandArray(2)) +
+     $        d_bCoef(bandArray(2))*dt +
+     $        0.5*d2_bCoef(bandArray(2))*dt**2
          PRINT *, "Current end of Verlet code block"
       ELSE IF (itScheme.EQ.3) THEN ! Runge-Kutta 2nd Order
-         rk(1,1) = dt*d_bCoef(1)
-         rk(2,1) = dt*d_bCoef(2)
+         rk(1,1) = dt*d_bCoef(bandArray(1))
+         rk(2,1) = dt*d_bCoef(bandArray(2))
          IF (RWA) THEN
             rk(1,2) = dt*((-q*E*EXP(im*(omega-omega_0)*dt)*
-     $           pz(1,2)*(rk(2,1)))
+     $           pz(bandArray(1),bandArray(2))*(rk(2,1)))
      $           /(2*m*hbar*omega_0))
             rk(2,2) = dt*((q*E*EXP(im*(omega_0-omega)*dt)*
-     $           pz(2,1)*(1+rk(1,1)))/
+     $           pz(bandArray(2),bandArray(1))*(1+rk(1,1)))/
      $           (2*m*hbar*omega_0))
          ELSE
-            rk(1,2) = dt*((-q*E*DCOS(omega*dt)*pz(1,2)*
+            rk(1,2) = dt*((-q*E*DCOS(omega*dt)*
+     $           pz(bandArray(1),bandArray(2))*
      $           EXP(-im*omega_0*dt)*rk(2,1))/
      $           (m*hbar*omega_0))
-            rk(2,2) = dt*((q*E*DCOS(omega*dt)*pz(2,1)*
+            rk(2,2) = dt*((q*E*DCOS(omega*dt)*
+     $           pz(bandArray(2),bandArray(1))*
      $           EXP(im*omega_0*dt)*(1+rk(1,1)))/
      $           (m*hbar*omega_0))
          END IF
          rk(1,5) = (rk(1,1)+rk(1,2))/2
          rk(2,5) = (rk(2,1)+rk(2,2))/2
-         new_bCoef(1) = bCoef(1) + rk(1,5)
-         new_bCoef(2) = bCoef(2) + rk(2,5)
+         new_bCoef(bandArray(1)) = bCoef(bandArray(1)) + rk(1,5)
+         new_bCoef(bandArray(2)) = bCoef(bandArray(2)) + rk(2,5)
          PRINT *, "End of Runge-Kutta 2 block"
       ELSE IF (itScheme.EQ.4) THEN ! Runge-Kutta 4th Order
-         rk(1,1) = dt*d_bCoef(1)
-         rk(2,1) = dt*d_bCoef(2)
+         rk(1,1) = dt*d_bCoef(bandArray(1))
+         rk(2,1) = dt*d_bCoef(bandArray(2))
          IF (RWA) THEN
             rk(1,2) = dt*((-q*E*EXP(im*(omega-omega_0)*dt/2)*
-     $           pz(1,2)*(rk(2,1)/2))
+     $           pz(bandArray(1),bandArray(2))*(rk(2,1)/2))
      $           /(2*m*hbar*omega_0))
             rk(2,2) = dt*((q*E*EXP(im*(omega_0-omega)*dt/2)*
-     $           pz(2,1)*(1+rk(1,1)/2))/
+     $           pz(bandArray(2),bandArray(1))*(1+rk(1,1)/2))/
      $           (2*m*hbar*omega_0))
             rk(1,3) = dt*((-q*E*EXP(im*(omega-omega_0)*dt/2)*
-     $           pz(1,2)*(rk(2,2)/2))
+     $           pz(bandArray(1),bandArray(2))*(rk(2,2)/2))
      $           /(2*m*hbar*omega_0))
             rk(2,3) = dt*((q*E*EXP(im*(omega_0-omega)*dt/2)*
-     $           pz(2,1)*(1+rk(1,2)/2))/
+     $           pz(bandArray(2),bandArray(1))*(1+rk(1,2)/2))/
      $           (2*m*hbar*omega_0))
             rk(1,4) = dt*((-q*E*EXP(im*(omega-omega_0)*dt)*
-     $           pz(1,2)*rk(2,3))/
+     $           pz(bandArray(1),bandArray(2))*rk(2,3))/
      $           (2*m*hbar*omega_0))
             rk(2,4) = dt*((q*E*EXP(im*(omega_0-omega)*dt)*
-     $           pz(2,1)*(1+rk(1,3)))/
+     $           pz(bandArray(2),bandArray(1))*(1+rk(1,3)))/
      $           (2*m*hbar*omega_0))
          ELSE
-            rk(1,2) = dt*((-q*E*DCOS(omega*dt/2)*pz(1,2)*
+            rk(1,2) = dt*((-q*E*DCOS(omega*dt/2)*
+     $           pz(bandArray(1),bandArray(2))*
      $           EXP(-im*omega_0*dt/2)*(rk(2,1)/2))/
      $           (m*hbar*omega_0))
-            rk(2,2) = dt*((q*E*DCOS(omega*dt/2)*pz(2,1)*
+            rk(2,2) = dt*((q*E*DCOS(omega*dt/2)*
+     $           pz(bandArray(2),bandArray(1))*
      $           EXP(im*omega_0*dt/2)*(1+rk(1,1)/2))/
      $           (m*hbar*omega_0))
-            rk(1,3) = dt*((-q*E*DCOS(omega*dt/2)*pz(1,2)*
+            rk(1,3) = dt*((-q*E*DCOS(omega*dt/2)*
+     $           pz(bandArray(1),bandArray(2))*
      $           EXP(-im*omega_0*dt/2)*(rk(2,2)/2))/
      $           (m*hbar*omega_0))
-            rk(2,3) = dt*((q*E*DCOS(omega*dt/2)*pz(2,1)*
+            rk(2,3) = dt*((q*E*DCOS(omega*dt/2)*
+     $           pz(bandArray(2),bandArray(1))*
      $           EXP(im*omega_0*dt/2)*(1+rk(1,2)/2))/
      $           (m*hbar*omega_0))
-            rk(1,4) = dt*((-q*E*DCOS(omega*dt)*pz(1,2)*
+            rk(1,4) = dt*((-q*E*DCOS(omega*dt)*
+     $           pz(bandArray(1),bandArray(2))*
      $           EXP(-im*omega_0*dt)*rk(2,3))/
      $           (m*hbar*omega_0))
-            rk(2,4) = dt*((q*E*DCOS(omega*dt)*pz(2,1)*
+            rk(2,4) = dt*((q*E*DCOS(omega*dt)*
+     $           pz(bandArray(2),bandArray(1))*
      $           EXP(im*omega_0*dt)*(1+rk(1,3)))/
      $           (m*hbar*omega_0))
          END IF
          rk(1,5) = (rk(1,1)+2*rk(1,2)+2*rk(1,3)+rk(1,4))/6
          rk(2,5) = (rk(2,1)+2*rk(2,2)+2*rk(2,3)+rk(2,4))/6
-         new_bCoef(1) = bCoef(1) + rk(1,5)
-         new_bCoef(2) = bCoef(2) + rk(2,5)
+         new_bCoef(bandArray(1)) = bCoef(bandArray(1)) + rk(1,5)
+         new_bCoef(bandArray(2)) = bCoef(bandArray(2)) + rk(2,5)
          PRINT *, "Reached end of Runge-Kutta 4 block"
       ELSE
          PRINT *, "Invalid iteration scheme provided"
@@ -737,23 +912,34 @@
          STOP 2
       END IF
 
-      PRINT *, "new_bCoef(1) = ", new_bCoef(1)
-      PRINT *, "new_bCoef(2) = ", new_bCoef(2)
-      PRINT *, "which means..."
-      PRINT *, "newOcc(1) = ", CONJG(new_bCoef(1))*new_bCoef(1)
-      PRINT *, "newOcc(2) = ", CONJG(new_bCoef(2))*new_bCoef(2)
-      PRINT *, "total population = ",
-     $     CONJG(new_bCoef(1))*new_bCoef(1) +
-     $     CONJG(new_bCoef(2))*new_bCoef(2)
-      PRINT *, "Reached end of time iteration loop"
+      WRITE(*,'(T1,A,I0.1,A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $     'new_bCoef(',bandArray(1),') = ', new_bCoef(bandArray(1))
+      WRITE(*,'(T1,A,I0.1,A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $     'new_bCoef(',bandArray(2),') = ', new_bCoef(bandArray(2))
+      WRITE(*,'(A)') "which means..."
+      WRITE(*,'(T1,A,I0.1,A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $     'newOcc(',bandArray(1),') = ',
+     $     CONJG(new_bCoef(bandArray(1)))*new_bCoef(bandArray(1))
+      WRITE(*,'(T1,A,I0.1,A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $     'newOcc(',bandArray(2),') = ',
+     $     CONJG(new_bCoef(bandArray(2)))*new_bCoef(bandArray(2))
+      WRITE(*,'(T1,A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $     'total population = ',
+     $     CONJG(new_bCoef(bandArray(1)))*new_bCoef(bandArray(1)) +
+     $     CONJG(new_bCoef(bandArray(2)))*new_bCoef(bandArray(2))
+      WRITE(*,'(T1,A)') "Reached end of time iteration loop"
 
       
       
       
 !newOcc(1,1) = CONJG(new_bCoef(1))*new_bCoef(1)
-      newOcc(2,1) = CONJG(new_bCoef(2))*new_bCoef(2)
-      newOcc(1,1) = CONJG(new_bCoef(1))*new_bCoef(1)
-      WRITE(*,*) 'new Occ.s=', newOcc(1,1), newOcc(2,1)
+      newOcc(bandArray(2),1) = CONJG(new_bCoef(bandArray(2)))*
+     $     new_bCoef(bandArray(2))
+      newOcc(bandArray(1),1) = CONJG(new_bCoef(bandArray(1)))*
+     $     new_bCoef(bandArray(1))
+      WRITE(*,'(T1,A,ES23.15E3,A,ES23.15E3)')
+     $     'new Occ.s=', newOcc(bandArray(1),1), '     ',
+     $     newOcc(bandArray(2),1)
       
       
       
@@ -767,14 +953,14 @@
      $     STATUS='old',
      $     RECL=8)
 
-      WRITE(*,*) 'Opened WAVECAR'
+      WRITE(*,'(A)') 'Opened WAVECAR'
       !# UPDATE THIS #!
-      WRITE(12,REC=rl/4+7) newOcc(1,1)
-      WRITE(12,REC=rl/4+10) newOcc(2,1)
+      WRITE(12,REC=rl/4+4+3*bandArray(1)) newOcc(bandArray(1),1)
+      WRITE(12,REC=rl/4+4+3*bandArray(2)) newOcc(bandArray(2),1)
 
       CLOSE(12)
       
-      WRITE(*,*) 'Updated WAVECAR'
+      WRITE(*,'(A)') 'Updated WAVECAR'
 
 
 
@@ -783,23 +969,34 @@
 
       OPEN(UNIT=50,
      $     FILE='dataFile.txt')
-      
-      WRITE(UNIT=50, FMT=*) "time     ",
-     $     "new_bCoef(1)     ", "new_bCoef(2)     ",
-     $     "bandEn(1,1)     ", "bandEn(2,1)     ",
-     $     "newOcc(1,1)     ", "newOcc(2,1)     ",
-     $     "px(1,2)     ", "px(2,1)     ",
-     $     "py(1,2)     ", "py(2,1)     ",
-     $     "pz(1,2)     ", "pz(2,1)     ",
-     $     "phaseE     "
+
+      dataFileFmt = '(A,6(A,I0.1,A),6(A,I0.1,A,I0.1,A),A)'
+      WRITE(UNIT=50, FMT=dataFileFmt)
+     $     'time     ',
+     $     'new_bCoef(',bandArray(1),')     ',
+     $     'new_bCoef(',bandArray(2),')     ',
+     $     'bandEn(',bandArray(1),',1)     ',
+     $     'bandEn(',bandArray(2),',1)     ',
+     $     'newOcc(',bandArray(1),',1)     ',
+     $     'newOcc(',bandArray(2),',1)     ',
+     $     'px(',bandArray(1),',',bandArray(2),')     ',
+     $     'px(',bandArray(2),',',bandArray(1),')     ',
+     $     'py(',bandArray(1),',',bandArray(2),')     ',
+     $     'py(',bandArray(2),',',bandArray(1),')     ',
+     $     'pz(',bandArray(1),',',bandArray(2),')     ',
+     $     'pz(',bandArray(2),',',bandArray(1),')     ',
+     $     'phaseE     '
       
       WRITE(UNIT=50, FMT=*) timeStep,
-     $     new_bCoef(1), new_bCoef(2),
-     $     bandEn(1,1), bandEn(2,1),
-     $     newOcc(1,1), newOcc(2,1),
-     $     px(1,2), px(2,1),
-     $     py(1,2), py(2,1),
-     $     pz(1,2), pz(2,1),
+     $     new_bCoef(bandArray(1)), new_bCoef(bandArray(2)),
+     $     bandEn(bandArray(1),1), bandEn(bandArray(2),1),
+     $     newOcc(bandArray(1),1), newOcc(bandArray(2),1),
+     $     px(bandArray(1),bandArray(2)),
+     $     px(bandArray(2),bandArray(1)),
+     $     py(bandArray(1),bandArray(2)),
+     $     py(bandArray(2),bandArray(1)),
+     $     pz(bandArray(1),bandArray(2)),
+     $     pz(bandArray(2),bandArray(1)),
      $     phaseE
       
       CLOSE(50)

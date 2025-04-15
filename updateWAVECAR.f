@@ -29,6 +29,8 @@
       COMPLEX(8), DIMENSION(10) :: temp, oldTemp
       LOGICAL :: RWA
       INTEGER :: itScheme
+      INTEGER, DIMENSION(2) :: bandArray
+      CHARACTER(72) :: dipoleFmt
 
 
       REAL(8), PARAMETER :: pi = 3.1415926
@@ -43,10 +45,12 @@
 !!!!!!!!!! Placeholder for parameters !!!!!!!!!!
 
       E = 0.000001
-      omega = 0.359812948994883
+      omega = 0.38
       RWA = .FALSE.
       timeStep = 0.01
       itScheme = 1
+      bandArray(1) = 1
+      bandArray(2) = 2
 
 
 
@@ -85,11 +89,15 @@
          END IF
       END DO
       time = time + timeStep
-      PRINT*, 'time =', time
-      PRINT*, "temp(1) =", temp(1)
-      PRINT*, "temp(2) =", temp(2)
-      PRINT*, "oldTemp(1) =", oldTemp(1)
-      PRINT*, "oldTemp(2) =", oldTemp(2)
+      WRITE(*,'(A,F18.6)') 'time = ', time
+      WRITE(*,'(A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $     'temp(1) = ', temp(1)
+      WRITE(*,'(A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $     'temp(2) = ', temp(2)
+      WRITE(*,'(A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $     'oldTemp(1) = ', oldTemp(1)
+      WRITE(*,'(A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $     'oldTemp(2) = ', oldTemp(2)
       
       CLOSE(5)
 
@@ -222,15 +230,20 @@
 
 
       PRINT*, "Assigning bCoef variables:"
-      bCoef(1) = temp(1)
-      bCoef(2) = temp(2)
-      prev_bCoef(1) = oldTemp(1)
-      prev_bCoef(2) = oldTemp(2)
-      PRINT*, "bCoef(1) =", bCoef(1)
-      PRINT*, "bCoef(2) =", bCoef(2)
-      PRINT*, "prev_bCoef(1) =", prev_bCoef(1)
-      PRINT*, "prev_bCoef(2) =", prev_bCoef(2)
-      PRINT*, "occ(2,1) =", occ(2,1)
+      bCoef(bandArray(1)) = temp(1)
+      bCoef(bandArray(2)) = temp(2)
+      prev_bCoef(bandArray(1)) = oldTemp(1)
+      prev_bCoef(bandArray(2)) = oldTemp(2)
+      WRITE(*,'(A,I0.1,A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $     'bCoef(',bandArray(1),') = ', bCoef(bandArray(1))
+      WRITE(*,'(A,I0.1,A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $     'bCoef(',bandArray(2),') = ', bCoef(bandArray(2))
+      WRITE(*,'(A,I0.1,A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $     'prev_bCoef(',bandArray(1),') = ', prev_bCoef(bandArray(1))
+      WRITE(*,'(A,I0.1,A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $     'prev_bCoef(',bandArray(2),') = ', prev_bCoef(2)
+      WRITE(*,'(A,I0.1,A,ES23.15E3)')
+     $     'occ(',bandArray(2),',1) = ', occ(bandArray(2),1)
 
       DO i=4,3+nb
          READ(12,REC=i) (pwCoef(i-3,j),j=1,npw)
@@ -243,7 +256,8 @@
             innerProduct(i) = innerProduct(i)
      $           + pwCoef_OLD(i,j)*CONJG(pwCoef(i,j))
          END DO
-         PRINT*, "innerProduct", i, "=", innerProduct(i)
+         WRITE(*,'(A,I0.1,A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $        'innerProduct ', i, ' = ', innerProduct(i)
          IF (REALPART(innerProduct(i))<-0.5) THEN
             PRINT*, "Flipping signs..."
             innerProduct(i)=0
@@ -260,13 +274,21 @@
       temp(3)=0
       temp(4)=0
       DO i=1,npw
-         temp(3)=temp(3)+pwCoef(1,i)*CONJG(pwCoef(1,i))
-         temp(4)=temp(4)+pwCoef(2,i)*CONJG(pwCoef(2,i))
+         temp(3)=temp(3)+
+     $        pwCoef(bandArray(1),i)*CONJG(pwCoef(bandArray(1),i))
+         temp(4)=temp(4)+
+     $        pwCoef(bandArray(2),i)*CONJG(pwCoef(bandArray(2),i))
       END DO
-      PRINT*, 'Band 1 Occ. =', bCoef(1)*CONJG(bCoef(1))
-      PRINT*, 'by PW =', temp(3)
-      PRINT*, 'Band 2 Occ. =', bCoef(2)*CONJG(bCoef(2))
-      PRINT*, 'by PW =', temp(4)
+      WRITE(*,'(A,I0.1,A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $     'Band ',bandArray(1),' Occ. = ',
+     $     bCoef(bandArray(1))*CONJG(bCoef(bandArray(1)))
+      WRITE(*,'(A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $     'by PW = ', temp(3)
+      WRITE(*,'(A,I0.1,A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $     'Band ',bandArray(2),' Occ. = ',
+     $     bCoef(bandArray(2))*CONJG(bCoef(bandArray(2)))
+      WRITE(*,'(A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $     'by PW = ', temp(4)
 
 !!!!! Spin-down !!!!!
 
@@ -336,167 +358,262 @@
       END DO
       
       DO i=1,npw
-         px(1,2) = px(1,2) + CONJG(pwCoef(1,i))*xMom(i)*pwCoef(2,i)
-     $        - pwCoef(1,i)*xMom(i)*CONJG(pwCoef(2,i))
-         px(2,1) = px(2,1) + CONJG(pwCoef(2,i))*xMom(i)*pwCoef(1,i)
-     $        - pwCoef(2,i)*xMom(i)*CONJG(pwCoef(1,i))
-         py(1,2) = py(1,2) + CONJG(pwCoef(1,i))*yMom(i)*pwCoef(2,i)
-     $        - pwCoef(1,i)*yMom(i)*CONJG(pwCoef(2,i))
-         py(2,1) = py(2,1) + CONJG(pwCoef(2,i))*yMom(i)*pwCoef(1,i)
-     $        - pwCoef(2,i)*yMom(i)*CONJG(pwCoef(1,i))
-         pz(1,2) = pz(1,2) + CONJG(pwCoef(1,i))*zMom(i)*pwCoef(2,i)
-     $        - pwCoef(1,i)*zMom(i)*CONJG(pwCoef(2,i))
-         pz(2,1) = pz(2,1) + CONJG(pwCoef(2,i))*zMom(i)*pwCoef(1,i)
-     $        - pwCoef(2,i)*zMom(i)*CONJG(pwCoef(1,i))
+         px(bandArray(1),bandArray(2)) =
+     $        px(bandArray(1),bandArray(2)) +
+     $        CONJG(pwCoef(bandArray(1),i))*xMom(i)*
+     $        pwCoef(bandArray(2),i) -
+     $        pwCoef(bandArray(1),i)*xMom(i)*
+     $        CONJG(pwCoef(bandArray(2),i))
+         px(bandArray(2),bandArray(1)) =
+     $        px(bandArray(2),bandArray(1)) +
+     $        CONJG(pwCoef(bandArray(2),i))*xMom(i)*
+     $        pwCoef(bandArray(1),i) -
+     $        pwCoef(bandArray(2),i)*xMom(i)*
+     $        CONJG(pwCoef(bandArray(1),i))
+         py(bandArray(1),bandArray(2)) =
+     $        py(bandArray(1),bandArray(2)) +
+     $        CONJG(pwCoef(bandArray(1),i))*yMom(i)*
+     $        pwCoef(bandArray(2),i) -
+     $        pwCoef(bandArray(1),i)*yMom(i)*
+     $        CONJG(pwCoef(bandArray(2),i))
+         py(bandArray(2),bandArray(1)) =
+     $        py(bandArray(2),bandArray(1)) +
+     $        CONJG(pwCoef(bandArray(2),i))*yMom(i)*
+     $        pwCoef(bandArray(1),i) -
+     $        pwCoef(bandArray(2),i)*yMom(i)*
+     $        CONJG(pwCoef(bandArray(1),i))
+         pz(bandArray(1),bandArray(2)) =
+     $        pz(bandArray(1),bandArray(2)) +
+     $        CONJG(pwCoef(bandArray(1),i))*zMom(i)*
+     $        pwCoef(bandArray(2),i) -
+     $        pwCoef(bandArray(1),i)*zMom(i)*
+     $        CONJG(pwCoef(bandArray(2),i))
+         pz(bandArray(2),bandArray(1)) =
+     $        pz(bandArray(2),bandArray(1)) +
+     $        CONJG(pwCoef(bandArray(2),i))*zMom(i)*
+     $        pwCoef(bandArray(1),i) -
+     $        pwCoef(bandArray(2),i)*zMom(i)*
+     $        CONJG(pwCoef(bandArray(1),i))
       END DO
-      PRINT*, 'px(1,2)=', px(1,2)
-      PRINT*, 'px(2,1)=', px(2,1)
-      PRINT*, 'py(1,2)=', py(1,2)
-      PRINT*, 'py(2,1)=', py(2,1)
-      PRINT*, 'pz(1,2)=', pz(1,2)
-      PRINT*, 'pz(2,1)=', pz(2,1)
+
+      dipoleFmt =
+     $     '(T1,A,I0.1,A,I0.1,A,"( ",ES23.15E3," , ",ES23.15E3," )")'
+      WRITE(*,dipoleFmt)
+     $     'px(',bandArray(1),',',bandArray(2),') = ',
+     $     px(bandArray(1),bandArray(2))
+      WRITE(*,dipoleFmt)
+     $     'px(',bandArray(2),',',bandArray(1),') = ',
+     $     px(bandArray(2),bandArray(1))
+      WRITE(*,dipoleFmt) 'py(',bandArray(1),',',bandArray(2),') = ',
+     $     py(bandArray(1),bandArray(2))
+      WRITE(*,dipoleFmt) 'py(',bandArray(2),',',bandArray(1),') = ',
+     $     py(bandArray(2),bandArray(1))
+      WRITE(*,dipoleFmt) 'pz(',bandArray(1),',',bandArray(2),') = ',
+     $     pz(bandArray(1),bandArray(2))
+      WRITE(*,dipoleFmt) 'pz(',bandArray(2),',',bandArray(1),') = ',
+     $     pz(bandArray(2),bandArray(1))
       
-      omega_0 = 0.0367494*(bandEn(2,1)-bandEn(1,1))/hbar !eV to au
-      PRINT*, 'omega_0=', omega_0
+      omega_0 = 0.0367494*
+     $     (bandEn(bandArray(2),1)-bandEn(bandArray(1),1))/hbar !eV to au
+      WRITE(*,'(A,F18.12)') 'omega_0 = ', omega_0
 
       phaseE = DCOS(omega*t)
-      PRINT*, 'cos(omega*t)=', phaseE
+      WRITE(*,'(A,F18.12)') 'cos(omega*t) = ', phaseE
       
-      PRINT*, 'bCoef(1)=', bCoef(1)
-      PRINT*, 'bCoef(2)=', bCoef(2)
-      PRINT*, 'exp=', EXP(-im*omega_0*t)
-      PRINT*, 'exp*bCoef(2)=', EXP(-im*omega_0*t)*bCoef(2)
+      WRITE(*,'(A,I0.1,A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $     'bCoef(',bandArray(1),') = ', bCoef(bandArray(1))
+      WRITE(*,'(A,I0.1,A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $     'bCoef(',bandArray(2),') = ', bCoef(bandArray(2))
+      WRITE(*,'(A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $     'exp = ', EXP(-im*omega_0*t)
+      WRITE(*,'(A,I0.1,A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $     'exp*bCoef(',bandArray(2),') = ',
+     $     EXP(-im*omega_0*t)*bCoef(bandArray(2))
 
       IF (RWA) THEN
-         d_bCoef(1) = -((q*E)/(2*m*hbar*omega_0))*
-     $        EXP(im*(omega-omega_0)*t)*pz(1,2)*bCoef(2)
-         d_bCoef(2) = ((q*E)/(2*m*hbar*omega_0))*
-     $        EXP(im*(omega_0-omega)*t)*pz(2,1)*bCoef(1)
+         d_bCoef(bandArray(1)) = -((q*E)/(2*m*hbar*omega_0))*
+     $        EXP(im*(omega-omega_0)*t)*
+     $        pz(bandArray(1),bandArray(2))*bCoef(bandArray(2))
+         d_bCoef(bandArray(2)) = ((q*E)/(2*m*hbar*omega_0))*
+     $        EXP(im*(omega_0-omega)*t)*
+     $        pz(bandArray(2),bandArray(1))*bCoef(bandArray(1))
       ELSE
-         d_bCoef(1) = -(q*E/(m*hbar*omega_0))*DCOS(omega*t)*pz(1,2)*
-     $        EXP(-im*omega_0*t)*bCoef(2)
-         d_bCoef(2) = (q*E/(m*hbar*omega_0))*DCOS(omega*t)*pz(2,1)*
-     $        EXP(im*omega_0*t)*bCoef(1)
+         d_bCoef(bandArray(1)) = -(q*E/(m*hbar*omega_0))*
+     $        DCOS(omega*t)*pz(bandArray(1),bandArray(2))*
+     $        EXP(-im*omega_0*t)*bCoef(bandArray(2))
+         d_bCoef(bandArray(2)) = (q*E/(m*hbar*omega_0))*
+     $        DCOS(omega*t)*pz(bandArray(2),bandArray(1))*
+     $        EXP(im*omega_0*t)*bCoef(bandArray(1))
       END IF
-      PRINT*, 'd_bCoef(1)=', d_bCoef(1)
-      PRINT*, 'd_bCoef(2)=', d_bCoef(2)
+      WRITE(*,'(A,I0.1,A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $     'd_bCoef(',bandArray(1),') = ', d_bCoef(bandArray(1))
+      WRITE(*,'(A,I0.1,A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $     'd_bCoef(',bandArray(2),') = ', d_bCoef(bandArray(2))
 
       IF (itScheme.EQ.1) THEN
-         new_bCoef(1) = bCoef(1) + dt*d_bCoef(1)
-         new_bCoef(2) = bCoef(2) + dt*d_bCoef(2)
+         new_bCoef(bandArray(1)) = bCoef(bandArray(1)) +
+     $        dt*d_bCoef(bandArray(1))
+         new_bCoef(bandArray(2)) = bCoef(bandArray(2)) +
+     $        dt*d_bCoef(bandArray(2))
       ELSE IF (itScheme.EQ.2) THEN
          ALLOCATE(d2_bCoef(nb))
          IF (RWA) THEN
-            d2_bCoef(1) = -(q*E*pz(1,2)*EXP(im*(omega-omega_0)*t)*
-     $           im*(omega-omega_0)*bCoef(2))/
+            d2_bCoef(bandArray(1)) =
+     $           -(q*E*pz(bandArray(1),bandArray(2))
+     $           *EXP(im*(omega-omega_0)*t)*
+     $           im*(omega-omega_0)*bCoef(bandArray(2)))/
      $           (2*m*hbar*omega_0) -
-     $           ((q**2)*(E**2)*pz(1,2)*pz(2,1)*bCoef(1))/
+     $           ((q**2)*(E**2)*pz(bandArray(1),bandArray(2))
+     $           *pz(bandArray(2),bandArray(1))*bCoef(bandArray(1)))/
      $           (4*(m**2)*(hbar**2)*(omega_0**2))
-            d2_bCoef(2) = (q*E*im*(omega_0-omega)*pz(2,1)*
-     $           EXP(im*(omega_0-omega)*t)*bCoef(1))/
+            d2_bCoef(bandArray(2)) =
+     $           (q*E*im*(omega_0-omega)*
+     $           pz(bandArray(2),bandArray(1))*
+     $           EXP(im*(omega_0-omega)*t)*bCoef(bandArray(1)))/
      $           (2*m*hbar*omega_0) -
-     $           ((q**2)*(E**2)*pz(1,2)*pz(2,1)*bCoef(2))/
+     $           ((q**2)*(E**2)*pz(bandArray(1),bandArray(2))*
+     $           pz(bandArray(2),bandArray(1))*bCoef(bandArray(2)))/
      $           (4*(m**2)*(hbar**2)*(omega_0**2))
          ELSE
-            d2_bCoef(1) = (q*E*pz(1,2)*EXP(-im*omega_0*t)*bCoef(2)*
+            d2_bCoef(bandArray(1)) =
+     $           (q*E*pz(bandArray(1),bandArray(2))*
+     $           EXP(-im*omega_0*t)*bCoef(bandArray(2))*
      $           (omega*DSIN(omega*t)+im*omega_0*DCOS(omega*t)))/
      $           (m*hbar*omega_0) -
-     $           ((q**2)*(E**2)*pz(1,2)*pz(2,1)*((DCOS(omega*t))**2)*
-     $           bCoef(1))/((m**2)*(hbar**2)*(omega_0**2))
-            d2_bCoef(2) = -(q*E*pz(2,1)*EXP(im*omega_0*t)*bCoef(1)*
+     $           ((q**2)*(E**2)*pz(bandArray(1),bandArray(2))*
+     $           pz(bandArray(2),bandArray(1))*
+     $           ((DCOS(omega*t))**2)*bCoef(bandArray(1)))/
+     $           ((m**2)*(hbar**2)*(omega_0**2))
+            d2_bCoef(bandArray(2)) =
+     $           -(q*E*pz(bandArray(2),bandArray(1))*
+     $           EXP(im*omega_0*t)*bCoef(bandArray(1))*
      $           (omega*DSIN(omega*t)-im*omega_0*DCOS(omega*t)))/
      $           (hbar*m*omega_0) -
-     $           ((q**2)*(E**2)*pz(1,2)*pz(2,1)*
-     $           ((DCOS(omega*t))**2)*bCoef(2))/
+     $           ((q**2)*(E**2)*pz(bandArray(1),bandArray(2))*
+     $           pz(bandArray(2),bandArray(1))*
+     $           ((DCOS(omega*t))**2)*bCoef(bandArray(2)))/
      $           ((m**2)*(hbar**2)*(omega_0**2))
          END IF
-         new_bCoef(1) = 2*bCoef(1) - prev_bCoef(1) + d2_bCoef(1)*dt**2
-         new_bCoef(2) = 2*bCoef(2) - prev_bCoef(2) + d2_bCoef(2)*dt**2
-         PRINT*, "new_bCoef(1) = ", new_bCoef(1)
-         PRINT*, "new_bCoef(2) = ", new_bCoef(2)
-         PRINT *, "End of Verlet code block"
+         new_bCoef(bandArray(1)) = 2*bCoef(bandArray(1)) -
+     $        prev_bCoef(bandArray(1)) + d2_bCoef(bandArray(1))*dt**2
+         new_bCoef(bandArray(2)) = 2*bCoef(bandArray(2)) -
+     $        prev_bCoef(bandArray(2)) + d2_bCoef(bandArray(2))*dt**2
+         WRITE(*,'(A,I0.1,A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $        'new_bCoef(',bandArray(1),') = ', new_bCoef(bandArray(1))
+         WRITE(*,'(A,I0.1,A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $        'new_bCoef(',bandArray(2),') = ', new_bCoef(bandArray(2))
+         PRINT *, 'End of Verlet code block'
       ELSE IF (itScheme.EQ.3) THEN
-         rk(1,1) = dt*d_bCoef(1)
-         rk(2,1) = dt*d_bCoef(2)
+         rk(1,1) = dt*d_bCoef(bandArray(1))
+         rk(2,1) = dt*d_bCoef(bandArray(2))
          IF (RWA) THEN
             rk(1,2) = dt*((-q*E*EXP(im*(omega-omega_0)*(t+dt))*
-     $           pz(1,2)*(bCoef(2)+rk(2,1)))/
+     $           pz(bandArray(1),bandArray(2))*
+     $           (bCoef(bandArray(2))+rk(2,1)))/
      $           (2*m*hbar*omega_0))
             rk(2,2) = dt*((q*E*EXP(im*(omega_0-omega)*(t+dt))*
-     $           pz(2,1)*(bCoef(1)+rk(1,1)))/
+     $           pz(bandArray(2),bandArray(1))*
+     $           (bCoef(bandArray(1))+rk(1,1)))/
      $           (2*m*hbar*omega_0))
          ELSE
-            rk(1,2) = dt*((-q*E*DCOS(omega*(t+dt))*pz(1,2)*
-     $           EXP(-im*omega_0*(t+dt))*(bCoef(2)+rk(2,1)))/
+            rk(1,2) = dt*((-q*E*DCOS(omega*(t+dt))*
+     $           pz(bandArray(1),bandArray(2))*
+     $           EXP(-im*omega_0*(t+dt))*
+     $           (bCoef(bandArray(2))+rk(2,1)))/
      $           (m*hbar*omega_0))
-            rk(2,2) = dt*((q*E*DCOS(omega*(t+dt))*pz(2,1)*
-     $           EXP(im*omega_0*(t+dt))*(bCoef(1)+rk(1,1)))/
+            rk(2,2) = dt*((q*E*DCOS(omega*(t+dt))*
+     $           pz(bandArray(2),bandArray(1))*
+     $           EXP(im*omega_0*(t+dt))*
+     $           (bCoef(bandArray(1))+rk(1,1)))/
      $           (m*hbar*omega_0))
          END IF
          rk(1,5) = (rk(1,1)+rk(1,2))/2
          rk(2,5) = (rk(2,1)+rk(2,2))/2
-         new_bCoef(1) = bCoef(1) + rk(1,5)
-         new_bCoef(2) = bCoef(2) + rk(2,5)
-         PRINT *, "End up Runge-Kutta 2 block"
+         new_bCoef(bandArray(1)) = bCoef(bandArray(1)) + rk(1,5)
+         new_bCoef(bandArray(2)) = bCoef(bandArray(2)) + rk(2,5)
+         PRINT *, 'End of Runge-Kutta 2 block'
       ELSE IF (itScheme.EQ.4) THEN
-         rk(1,1) = dt*d_bCoef(1)
-         rk(2,1) = dt*d_bCoef(2)
+         rk(1,1) = dt*d_bCoef(bandArray(1))
+         rk(2,1) = dt*d_bCoef(bandArray(2))
          IF (RWA) THEN
             rk(1,2) = dt*((-q*E*EXP(im*(omega-omega_0)*(t+dt/2))*
-     $           pz(1,2)*(bCoef(2)+rk(2,1)/2))/
+     $           pz(bandArray(1),bandArray(2))*
+     $           (bCoef(bandArray(2))+rk(2,1)/2))/
      $           (2*m*hbar*omega_0))
             rk(2,2) = dt*((q*E*EXP(im*(omega_0-omega)*(t+dt/2))*
-     $           pz(2,1)*(bCoef(1)+rk(1,1)/2))/
+     $           pz(bandArray(2),bandArray(1))*
+     $           (bCoef(bandArray(1))+rk(1,1)/2))/
      $           (2*m*hbar*omega_0))
             rk(1,3) = dt*((-q*E*EXP(im*(omega-omega_0)*(t+dt/2))*
-     $           pz(1,2)*(bCoef(2)+rk(2,2)/2))/
+     $           pz(bandArray(1),bandArray(2))*
+     $           (bCoef(bandArray(2))+rk(2,2)/2))/
      $           (2*m*hbar*omega_0))
             rk(2,3) = dt*((q*E*EXP(im*(omega_0-omega)*(t+dt/2))*
-     $           pz(2,1)*(bCoef(1)+rk(1,2)/2))/
+     $           pz(bandArray(2),bandArray(1))*
+     $           (bCoef(bandArray(1))+rk(1,2)/2))/
      $           (2*m*hbar*omega_0))
             rk(1,4) = dt*((-q*E*EXP(im*(omega-omega_0)*(t+dt))*
-     $           pz(1,2)*(bCoef(2)+rk(2,3)))/
+     $           pz(bandArray(1),bandArray(2))*
+     $           (bCoef(bandArray(2))+rk(2,3)))/
      $           (2*m*hbar*omega_0))
             rk(2,4) = dt*((q*E*EXP(im*(omega_0-omega)*(t+dt))*
-     $           pz(2,1)*(bCoef(1)+rk(1,3)))/
+     $           pz(bandArray(2),bandArray(1))*
+     $           (bCoef(bandArray(1))+rk(1,3)))/
      $           (2*m*hbar*omega_0))
          ELSE
-            rk(1,2) = dt*((-q*E*DCOS(omega*(t+dt/2))*pz(1,2)*
-     $           EXP(-im*omega_0*(t+dt/2))*(bCoef(2)+rk(2,1)/2))/
+            rk(1,2) = dt*((-q*E*DCOS(omega*(t+dt/2))*
+     $           pz(bandArray(1),bandArray(2))*
+     $           EXP(-im*omega_0*(t+dt/2))*
+     $           (bCoef(bandArray(2))+rk(2,1)/2))/
      $           (m*hbar*omega_0))
-            rk(2,2) = dt*((q*E*DCOS(omega*(t+dt/2))*pz(2,1)*
-     $           EXP(im*omega_0*(t+dt/2))*(bCoef(1)+rk(1,1)/2))/
+            rk(2,2) = dt*((q*E*DCOS(omega*(t+dt/2))*
+     $           pz(bandArray(2),bandArray(1))*
+     $           EXP(im*omega_0*(t+dt/2))*
+     $           (bCoef(bandArray(1))+rk(1,1)/2))/
      $           (m*hbar*omega_0))
-            rk(1,3) = dt*((-q*E*DCOS(omega*(t+dt/2))*pz(1,2)*
-     $           EXP(-im*omega_0*(t+dt/2))*(bCoef(2)+rk(2,2)/2))/
+            rk(1,3) = dt*((-q*E*DCOS(omega*(t+dt/2))*
+     $           pz(bandArray(1),bandArray(2))*
+     $           EXP(-im*omega_0*(t+dt/2))*
+     $           (bCoef(bandArray(2))+rk(2,2)/2))/
      $           (m*hbar*omega_0))
-            rk(2,3) = dt*((q*E*DCOS(omega*(t+dt/2))*pz(2,1)*
-     $           EXP(im*omega_0*(t+dt/2))*(bCoef(1)+rk(1,2)/2))/
+            rk(2,3) = dt*((q*E*DCOS(omega*(t+dt/2))*
+     $           pz(bandArray(2),bandArray(1))*
+     $           EXP(im*omega_0*(t+dt/2))*
+     $           (bCoef(bandArray(1))+rk(1,2)/2))/
      $           (m*hbar*omega_0))
-            rk(1,4) = dt*((-q*E*DCOS(omega*(t+dt))*pz(1,2)*
-     $           EXP(-im*omega_0*(t+dt))*(bCoef(2)+rk(2,3)))/
+            rk(1,4) = dt*((-q*E*DCOS(omega*(t+dt))*
+     $           pz(bandArray(1),bandArray(2))*
+     $           EXP(-im*omega_0*(t+dt))*
+     $           (bCoef(bandArray(2))+rk(2,3)))/
      $           (m*hbar*omega_0))
-            rk(2,4) = dt*((q*E*DCOS(omega*(t+dt))*pz(2,1)*
-     $           EXP(im*omega_0*(t+dt))*(bCoef(1)+rk(1,3)))/
+            rk(2,4) = dt*((q*E*DCOS(omega*(t+dt))*
+     $           pz(bandArray(2),bandArray(1))*
+     $           EXP(im*omega_0*(t+dt))*
+     $           (bCoef(bandArray(1))+rk(1,3)))/
      $           (m*hbar*omega_0))
          END IF
          rk(1,5) = (rk(1,1)+2*rk(1,2)+2*rk(1,3)+rk(1,4))/6
          rk(2,5) = (rk(2,1)+2*rk(2,2)+2*rk(2,3)+rk(2,4))/6
-         new_bCoef(1) = bCoef(1) + rk(1,5)
-         new_bCoef(2) = bCoef(2) + rk(2,5)
-         PRINT*, "Reached end of Runge-Kutta 4 block"
+         new_bCoef(bandArray(1)) = bCoef(bandArray(1)) + rk(1,5)
+         new_bCoef(bandArray(2)) = bCoef(bandArray(2)) + rk(2,5)
+         PRINT*, 'Reached end of Runge-Kutta 4 block'
       ELSE
-         PRINT*, "Invalid iteration scheme detected in updateWAVECAR.f"
-         PRINT*, "Terminating program"
+         PRINT*, 'Invalid iteration scheme detected in updateWAVECAR.f'
+         PRINT*, 'Terminating program'
          STOP 2
       END IF
          
-      PRINT *, "new_bCoef(1) = ", new_bCoef(1)
-      PRINT *, "new_bCoef(2) = ", new_bCoef(2)
+      WRITE(*,'(A,I0.1,A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $     'new_bCoef(',bandArray(1),') = ', new_bCoef(bandArray(1))
+      WRITE(*,'(A,I0.1,A,"( ",ES23.15E3," , ",ES23.15E3," )")')
+     $     'new_bCoef(',bandArray(2),') = ', new_bCoef(bandArray(2))
       
-      newOcc(1,1) = CONJG(new_bCoef(1))*new_bCoef(1)
-      newOcc(2,1) = CONJG(new_bCoef(2))*new_bCoef(2)
-      PRINT*, 'new Occ.s=', newOcc(1,1), newOcc(2,1)
+      newOcc(bandArray(1),1) =
+     $     CONJG(new_bCoef(bandArray(1)))*new_bCoef(bandArray(1))
+      newOcc(bandArray(2),1) =
+     $     CONJG(new_bCoef(bandArray(2)))*new_bCoef(bandArray(2))
+      WRITE(*,'(A,ES23.15E3,A,ES23.15E3)') 'new Occ.s = ',
+     $     newOcc(bandArray(1),1), '     ', newOcc(bandArray(2),1)
 
       
 
@@ -511,8 +628,8 @@
      $     RECL=8)
 
       !# UPDATE THIS #!
-      WRITE(12,REC=rl/4+7) newOcc(1,1)
-      WRITE(12,REC=rl/4+10) newOcc(2,1)
+      WRITE(12,REC=rl/4+4+3*bandArray(1)) newOcc(bandArray(1),1)
+      WRITE(12,REC=rl/4+4+3*bandArray(2)) newOcc(bandArray(2),1)
 
       CLOSE(12)
 
@@ -526,17 +643,21 @@
      $     ACCESS='append')
 
       WRITE(UNIT=50, FMT=*) time,
-     $     new_bCoef(1), new_bCoef(2),
-     $     bandEn(1,1), bandEn(2,1),
-     $     newOcc(1,1), newOcc(2,1),
-     $     px(1,2), px(2,1),
-     $     py(1,2), py(2,1),
-     $     pz(1,2), pz(2,1),
+     $     new_bCoef(bandArray(1)), new_bCoef(bandArray(2)),
+     $     bandEn(bandArray(1),1), bandEn(bandArray(2),1),
+     $     newOcc(bandArray(1),1), newOcc(bandArray(2),1),
+     $     px(bandArray(1),bandArray(2)),
+     $     px(bandArray(2),bandArray(1)),
+     $     py(bandArray(1),bandArray(2)),
+     $     py(bandArray(2),bandArray(1)),
+     $     pz(bandArray(1),bandArray(2)),
+     $     pz(bandArray(2),bandArray(1)),
      $     phaseE
 
       CLOSE(50)
       
       END PROGRAM UpdateWAVECAR
+
 
 
 
