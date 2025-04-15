@@ -1,11 +1,13 @@
-E = <tmp> # max/initial E-field amplitude
+E = 0.000001 # max/initial E-field amplitude
 
-timeStep = <tmp> # time step in fs
+timeStep = 0.01 # time step in fs
 
-omega = <tmp> # driving frequency of E-field
+omega = 0.38 # driving frequency of E-field
 
 RWA = .FALSE. # .TRUE. to utilize RWA, .FALSE. otherwise
 
 itScheme = 1 # iteration scheme, 1=Euler, 2=Verlet, 3=Runge-Kutta 2nd order, 4=Runge-Kutta 4th order
 
-CHGint = 500 # interval to save CHG files. 0=don't save them
+bands = 1 2 # whitespace separated list of band indices for electron transfer
+
+CHGint = 0 # interval to save CHG files. 0=don't save them
