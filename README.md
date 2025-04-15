@@ -63,7 +63,7 @@ Things that show up in file names:
 - SiC: It's for silicon carbide
 - Rabi: This file is intended for recreation of Rabi oscillations with *frozen nuclei*
 - Phot0K: This file is intended for mobile nuclei, but starts with no thermal motion.
-- **N**x**N**: It's a **N**x**N** supercell.
+- *N*x*N*: It's a *N*x*N* supercell.
 - DiVac: It has a divacancy defect (V_Si V_C)
 - OC: It's off-center (low-dimensional materials directly in the center of the simulation cell cause problems. I believe this is because **every** plane wave that is used to construct the electronic bands has either a node or an anti-node right where we're looking, which causes some instability.)
 - Opt: The geometry has already been optimized
