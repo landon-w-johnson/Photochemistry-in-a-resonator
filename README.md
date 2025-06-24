@@ -12,9 +12,9 @@ The general methodology here is to piggy-back off of VASP and use time-dependent
 
 This project is still in a validation stage. The major assumptions at present are
 
-1) The system is inside a Fabry-Perot resonator that is perfectly tuned to the excitation energy between the user-specified bands (even if the molecular resonant frequency is changing). This allows all other electric field frequencies to be ignored as they will die off very quickly in such a resonator.
-2) The electric field is treated classically. This is for the sake of debugging and validation against the analytical solution of Rabi oscillations, which do not require quantized photons. The photons will be quantized eventually.
-3) The molecule can absorb energy from the E-field, but it cannot release energy back into the E-field. This will likely be fixed at the same time that the quantized treatment of photons is implemented.
+1. The system is inside a Fabry-Perot resonator that is perfectly tuned to the excitation energy between the user-specified bands (even if the molecular resonant frequency is changing). This allows all other electric field frequencies to be ignored as they will die off very quickly in such a resonator.
+1. The electric field is treated classically. This is for the sake of debugging and validation against the analytical solution of Rabi oscillations, which do not require quantized photons. The photons will be quantized eventually.
+1. The molecule can absorb energy from the E-field, but it cannot release energy back into the E-field. This will likely be fixed at the same time that the quantized treatment of photons is implemented.
 
 This package is able to numerically capture the analytical solution of Rabi oscillations *for frozen nuclei* in multiple molecular systems.
 
@@ -46,7 +46,7 @@ Ensure that your job submission script runs `twoLevelSystem.sh`! This is very im
 
 ### Submitting Batch Jobs
 
-`makeTrajectoryGrid.sh` is a script that will take the contents its working directory and copy them into subdirectories that it makes for different initial conditions. This script has cluster-specific lines (e.g. lines that end in `# CCAST` or `# NERSC`) that will need to be (un)commented or modified appropriately for the computer cluster being used. Also note that the line that writes the value for `omega` (the frequency of E-field amplitude oscillations in atomic units) may need to be modified. Ensure that there are the correct number of preceeding 0s for the value of `omega` that it writes. The arithmetic that calculates the value for `omega` is integer-based and does not track the leading 0s after the decimal point.
+`makeTrajectoryGrid.sh` is a script that will take the contents in its working directory and copy them into subdirectories that it makes for different initial conditions. This script has cluster-specific lines (e.g. lines that end in `# CCAST` or `# NERSC`) that will need to be (un)commented or modified appropriately for the computer cluster being used. Also note that the line that writes the value for `omega` (the frequency of E-field amplitude oscillations in atomic units) may need to be modified. Ensure that there are the correct number of preceeding 0s for the value of `omega` that it writes. The arithmetic that calculates the value for `omega` is integer-based and does not track the leading 0s after the decimal point.
 
 ### Other Auxiliary Scipts
 
