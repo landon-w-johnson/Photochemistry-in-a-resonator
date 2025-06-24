@@ -2,7 +2,7 @@
 
 ### The Goal
 
-This is a real-time time-dependent density functional theory (RT-TDDFT) package that is designed as an add-on to the Vienna Ab-initio Simulation Package (VASP). The goal is to incorporate explicit electron-photon coupling into VASP calculations so that molecular dynamics (MD) trajectories can be run with electronic occupations being updated "on-the-fly." Further, this is to be done in a scalable fashion, allowing for the simulation of trajectories on the order of picoseconds.
+This is a real-time time-dependent density functional theory (RT-TDDFT) package that is designed as an add-on to the Vienna Ab-initio Simulation Package (VASP). The goal is to incorporate explicit electron-photon coupling into VASP calculations so that molecular dynamics (MD) trajectories can be run with electronic occupations being updated "on-the-fly." Further, this is to be done in a scalable fashion, allowing for the simulation of trajectories of "reasonably large" systems up to the order of picoseconds.
 
 ### The Basic Idea
 
