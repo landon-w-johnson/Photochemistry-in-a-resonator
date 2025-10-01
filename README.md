@@ -33,6 +33,7 @@ In order to run this package, the user will need the files necessary for VASP it
 - `POSCAR`
 - `POTCAR`
 - `KPOINTS` (only gamma point calculations at present)
+
 After optimizing the geometry and assuming that you have the afforementioned files for that optimized geometry, you will also need
 - `WAVECAR`
 - `firstTimeStep.f`
