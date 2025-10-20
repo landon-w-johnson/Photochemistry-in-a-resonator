@@ -22,8 +22,8 @@ run first timestep(?) (I previously had issues trying to use the updateWAVECAR s
 loop
     run VASP
     run updateWAVECAR (or whatever we call it)
-    	read WAVECAR info
-	perform perturbation theory
-	write new occupancies into WAVECAR
-	output relevant data into output files for plotting and post-processing
+        read WAVECAR info
+        perform perturbation theory
+        write new occupancies into WAVECAR
+        output relevant data into output files for plotting and post-processing
 ```
