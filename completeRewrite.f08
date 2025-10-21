@@ -2,6 +2,8 @@ PROGRAM UnnamedJank
   
   IMPLICIT NONE
 
+  INTEGER :: ioStatus
+
   TYPE :: tagStruct
      CHARACTER(LEN=:), ALLOCATABLE :: key, val
      LOGICAL, POINTER :: lpnt => NULL()
@@ -25,6 +27,66 @@ PROGRAM UnnamedJank
 
 
 CONTAINS
+
+  SUBROUTINE assignLOGICAL(pnt,val)
+    LOGICAL, POINTER, INTENT(INOUT) :: pnt
+    CHARACTER(LEN=*), INTENT(IN) :: val
+    
+    SELECT CASE(TRIM(ADJUSTL(val)))
+    CASE('.TRUE.', 'T', 'TRUE')
+       pnt = .TRUE.
+    CASE('.FALSE.', 'F', 'FALSE')
+       pnt = .FALSE.
+    CASE DEFAULT
+       WRITE(*,*) 'Error in SUBROUTINE assignLOGICAL.'
+       WRITE(*,*) 'Invalid LOGICAL value: '//TRIM(val)
+       STOP 2
+    END SELECT
+  END SUBROUTINE assignLOGICAL
+  
+  
+  
+  SUBROUTINE assignDOUBLE(pnt, val)
+    REAL(8), POINTER, INTENT(INOUT) :: pnt
+    CHARACTER(LEN=*), INTENT(IN) :: val
+    
+    READ(val, *, IOSTAT=ioStatus) pnt
+    IF (ioStatus /= 0) THEN
+       WRITE(*,*) 'Error in SUBROUTINE assignDOUBLE.'
+       WRITE(*,*) 'Invaled REAL value: '// TRIM(val)
+       STOP 2
+    END IF
+  END SUBROUTINE assignDOUBLE
+
+
+
+  SUBROUTINE assignINT(pnt, val)
+    INTEGER, INTENT(INOUT) :: pnt
+    CHARACTER(LEN=*), INTENT(IN) :: val
+
+    READ(val, *, IOSTAT=ioStatus) pnt
+    IF (ioStat /= 0) THEN
+       WRITE(*,*) 'Error in SUBROUTINE assignINT.'
+       WRITE(*,*) 'Invalid INTEGER value: '//TRIM(val)
+       STOP 2
+    END IF
+  END SUBROUTINE assignINT
+
+
+
+  SUBROUTINE assignSTRING(pnt, val)
+    CHARACTER(LEN=*), INTENT(INOUT) :: pnt
+    CHARACTER(LEN=*), INTENT(IN) :: val
+
+    READ(val, *, IOSTAT=ioStatus) pnt
+    IF (ioStatus /= 0) THEN
+       WRITE(*,*) 'Error in SUBROUTINE assignSTRING.'
+       WRITE(*,*) 'Invalid STRING value: '//TRIM(val)
+       STOP 2
+    END IF
+  END SUBROUTINE assignSTRING
+
+     
 
   SUBROUTINE parsePHOTCAR(EfieldAmp, timeStep, omega, RWA, itScheme, excitationE, CHGint, maxSteps, VASPcmd)
     REAL(8), INTENT(INOUT), TARGET :: EfieldAmp, timeStep, omega, excitationE
@@ -157,6 +219,34 @@ CONTAINS
              tempVal = TRIM(ADJUSTL(photcarStr(&
                   startInd+assignmentInd:startInd+commentInd-2)))
           END IF
+          DO k = 1, numTotalTags
+             ! Find the matching tag and update its pointer
+             IF (tempKey == photcarParams%tags(k)%key) THEN
+                photcarParams%tags(k)%used = .TRUE.
+                photcarParams%tags(k)%val = tempVal
+                IF (ASSOCIATED(photcarParams%tags(k)%lpnt)) THEN
+                   CALL assignLOGICAL(&
+                        photcarParams%tags(k)%lpnt,&
+                        photcarParams%tas(k)%val)
+                   EXIT
+                ELSE IF (ASSOCIATED(photcarParams%tags(k)%rpnt)) THEN
+                   CALL assignDOUBLE(&
+                        photcarParams%tags(k)%ipnt,&
+                        photcarParams%tags(k)%val)
+                   EXIT
+                ELSE IF (ASSOCIATED(photcarParams%tags(k)%ipnt)) THEN
+                   CALL assignINT(&
+                        photcarParams%tags(k)%ipnt,&
+                        photcarParams%tags(k)%val)
+                   EXIT
+                ELSE ! string
+                   CALL assingSTRING(&
+                        photcarParams%tags(k)%spnt,&
+                        photcarParams%tags(k)%val)
+                   EXIT
+                END IF
+             END IF
+          END DO
        END IF
     END DO
   END SUBROUTINE parsePHOTCAR
