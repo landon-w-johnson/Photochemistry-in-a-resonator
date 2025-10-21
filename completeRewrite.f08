@@ -3,6 +3,13 @@ PROGRAM UnnamedJank
   IMPLICIT NONE
 
   INTEGER :: ioStatus
+  
+  REAL(8), TARGET :: EfieldAmp, timeStep, omega, excitationE
+  LOGICAL, TARGET :: RWA
+  INTEGER, TARGET :: itScheme, CHGint, maxSteps
+  CHARACTER(LEN=:), ALLOCATABLE, TARGET :: VASPcmd
+    
+  
 
   TYPE :: tagStruct
      CHARACTER(LEN=:), ALLOCATABLE :: key, val
@@ -17,12 +24,18 @@ PROGRAM UnnamedJank
      TYPE(tagStruct), ALLOCATABLE :: tags (:)
   END TYPE photcarTags
 
-  CALL parsePHOTCAR()
+  CALL parsePHOTCAR(EfieldAmp, timeStep, omega, RWA, itScheme, excitationE, CHGint, maxSteps, VASPcmd)
 
-
-
-
-
+  WRITE(*,'(T1,A,ES23.16E3)') 'EfieldAmp = ', EfieldAmp
+  WRITE(*,'(T1,A,ES23.16E3)') 'timeStep = ', timeStep
+  WRITE(*,'(T1,A,ES23.16E3)') 'omega = ', omega
+  WRITE(*,'(T1,A,L1)') 'RWA = ', RWA
+  WRITE(*,'(T1,A,I0.1)') 'itScheme = ', itScheme
+  WRITE(*,'(T1,A,ES23.16E3)') '', excitationE
+  WRITE(*,'(T1,A,I0.1)') 'CHGint = ', CHGint
+  WRITE(*,'(T1,A,I0.1)') 'maxSteps = ', maxSteps
+  WRITE(*,'(T1,A,A)') 'VASPcmd = ', VASPcmd
+  
 
 
 
@@ -39,7 +52,7 @@ CONTAINS
        pnt = .FALSE.
     CASE DEFAULT
        WRITE(*,*) 'Error in SUBROUTINE assignLOGICAL.'
-       WRITE(*,*) 'Invalid LOGICAL value: '//TRIM(val)
+       WRITE(*,*) 'Invalid LOGICAL value: ', TRIM(val)
        STOP 2
     END SELECT
   END SUBROUTINE assignLOGICAL
@@ -53,7 +66,7 @@ CONTAINS
     READ(val, *, IOSTAT=ioStatus) pnt
     IF (ioStatus /= 0) THEN
        WRITE(*,*) 'Error in SUBROUTINE assignDOUBLE.'
-       WRITE(*,*) 'Invaled REAL value: '// TRIM(val)
+       WRITE(*,*) 'Invaled REAL value: ', TRIM(val)
        STOP 2
     END IF
   END SUBROUTINE assignDOUBLE
@@ -65,9 +78,9 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: val
 
     READ(val, *, IOSTAT=ioStatus) pnt
-    IF (ioStat /= 0) THEN
+    IF (ioStatus /= 0) THEN
        WRITE(*,*) 'Error in SUBROUTINE assignINT.'
-       WRITE(*,*) 'Invalid INTEGER value: '//TRIM(val)
+       WRITE(*,*) 'Invalid INTEGER value: ', TRIM(val)
        STOP 2
     END IF
   END SUBROUTINE assignINT
@@ -81,7 +94,7 @@ CONTAINS
     READ(val, *, IOSTAT=ioStatus) pnt
     IF (ioStatus /= 0) THEN
        WRITE(*,*) 'Error in SUBROUTINE assignSTRING.'
-       WRITE(*,*) 'Invalid STRING value: '//TRIM(val)
+       WRITE(*,*) 'Invalid STRING value: ', TRIM(val)
        STOP 2
     END IF
   END SUBROUTINE assignSTRING
@@ -91,11 +104,12 @@ CONTAINS
   SUBROUTINE parsePHOTCAR(EfieldAmp, timeStep, omega, RWA, itScheme, excitationE, CHGint, maxSteps, VASPcmd)
     REAL(8), INTENT(INOUT), TARGET :: EfieldAmp, timeStep, omega, excitationE
     LOGICAL, INTENT(INOUT), TARGET :: RWA
-    INTEGER, INTENT(INOUT), TARGET :: itScheme, CHGint
+    INTEGER, INTENT(INOUT), TARGET :: itScheme, CHGint, maxSteps
+    CHARACTER(LEN=*), INTENT(INOUT), TARGET :: VASPcmd
     
     INTEGER :: ioErr, fileSize, newLineCount, i, j, k, numTotalTags
-    INTEGER :: startInd, endInd, commentInd
-    CHARACTER(LEN=:), ALLOCATABLE :: photcarStr, tmpStr
+    INTEGER :: startInd, endInd, commentInd, assignmentInd
+    CHARACTER(LEN=:), ALLOCATABLE :: photcarStr, tmpStr, tmpKey, tmpVal
     INTEGER, ALLOCATABLE :: newLineIndices(:), tmpNewLineIndices(:)
 
     TYPE(photcarTags) :: photcarParams
@@ -104,7 +118,7 @@ CONTAINS
     OPEN(UNIT=1,&
          FILE='PHOTCAR',&
          STATUS='old',&
-         ACCESS='steam',&
+         ACCESS='stream',&
          ACTION='read',&
          FORM='unformatted',&
          IOSTAT=ioErr)
@@ -172,7 +186,7 @@ CONTAINS
     photcarParams%tags(8)%key = "maxSteps"
     photcarParams%tags(8)%ipnt => maxSteps
     photcarParams%tags(9)%key = "VASPcmd"
-    photcarParams%tags(9)%rpnt => VASPcmd
+    photcarParams%tags(9)%spnt => VASPcmd
 
     ! Set vals to defaults !
     DO i = 1, numTotalTags
@@ -194,7 +208,7 @@ CONTAINS
           WRITE(tmpStr,'(I1)') photcarParams%tags(i)%ipnt
           photcarParams%tags(i)%val = TRIM(ADJUSTL(tmpStr))
        ELSE ! string
-          WRITE(tmpStr,'A') photcarParams%tags(i)%spnt
+          WRITE(tmpStr,'(A)') photcarParams%tags(i)%spnt
           photcarParams%tags(i)%val = TRIM(ADJUSTL(tmpStr))
        END IF
     END DO
@@ -208,30 +222,30 @@ CONTAINS
        ! If '=' is there and before '#'
        IF ((assignmentInd /= 0 .AND. assignmentInd < commentInd) .OR. &
             ! Or if '=' is there and '#' is not
-            (assignmentInd < 0 .AND. commendInd == 0)) THEN
+            (assignmentInd < 0 .AND. commentInd == 0)) THEN
           ! Extract key/val pair
-          tempKey = TRIM(ADJUSTL(photcarStr(startInd:startInd+assignmentInd-2)))
+          tmpKey = TRIM(ADJUSTL(photcarStr(startInd:startInd+assignmentInd-2)))
           IF (commentInd == 0) THEN
              ! Save everything to the right of '=' as the val
-             tempVal = TRIM(ADJUSTL(photcarStr(startIND+assignmentInd:endInd)))
+             tmpVal = TRIM(ADJUSTL(photcarStr(startIND+assignmentInd:endInd)))
           ELSE
              ! Save everything between '=' and '#' as the val
-             tempVal = TRIM(ADJUSTL(photcarStr(&
+             tmpVal = TRIM(ADJUSTL(photcarStr(&
                   startInd+assignmentInd:startInd+commentInd-2)))
           END IF
           DO k = 1, numTotalTags
              ! Find the matching tag and update its pointer
-             IF (tempKey == photcarParams%tags(k)%key) THEN
+             IF (tmpKey == photcarParams%tags(k)%key) THEN
                 photcarParams%tags(k)%used = .TRUE.
-                photcarParams%tags(k)%val = tempVal
+                photcarParams%tags(k)%val = tmpVal
                 IF (ASSOCIATED(photcarParams%tags(k)%lpnt)) THEN
                    CALL assignLOGICAL(&
                         photcarParams%tags(k)%lpnt,&
-                        photcarParams%tas(k)%val)
+                        photcarParams%tags(k)%val)
                    EXIT
                 ELSE IF (ASSOCIATED(photcarParams%tags(k)%rpnt)) THEN
                    CALL assignDOUBLE(&
-                        photcarParams%tags(k)%ipnt,&
+                        photcarParams%tags(k)%rpnt,&
                         photcarParams%tags(k)%val)
                    EXIT
                 ELSE IF (ASSOCIATED(photcarParams%tags(k)%ipnt)) THEN
