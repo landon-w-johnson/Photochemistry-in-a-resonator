@@ -34,7 +34,7 @@ PROGRAM UnnamedJank
   WRITE(*,'(T1,A,ES23.16E3)') '', excitationE
   WRITE(*,'(T1,A,I0.1)') 'CHGint = ', CHGint
   WRITE(*,'(T1,A,I0.1)') 'maxSteps = ', maxSteps
-  WRITE(*,'(T1,A,A)') 'VASPcmd = ', VASPcmd
+  WRITE(*,'(T1,A,A)') 'VASPcmd = ', TRIM(VASPcmd)
   
 
 
@@ -262,6 +262,33 @@ CONTAINS
                 END IF
              END IF
           END DO
+       END IF
+    END DO
+
+    ! Nullify any unused pointers !
+    DO i = 1, numTotalTags
+       IF (.NOT. photcarParams%tags(i)%used) THEN
+          WRITE(*,'(A)') 'Unused PHOTCAR tag: ', TRIM(photcarParams%tags(i)%key)
+          IF (ASSOCIATED(photcarParams%tags(i)%rpnt)) THEN
+             NULLIFY(photcarParams%tags(i)%rpnt)
+             WRITE(*,'(A)') 'Nullified REAL(8) POINTER to ',&
+                  TRIM(photcarParams%tags(i)%key)
+          END IF
+          IF (ASSOCIATED(photcarParams%tags(i)%lpnt)) THEN
+             NULLIFY(photcarParams%tags(i)%lpnt)
+             WRITE(*,'(A)') 'Nullified LOGICAL POINTER to ',&
+                  photcarParams%tags(i)%key
+          END IF
+          IF (ASSOCIATED(photcarParams%tags(i)%ipnt)) THEN
+             NULLIFY(photcarParams%tags(i)%ipnt)
+             WRITE(*,'(A)') 'Nullified INTEGER POINTER to ',&
+                  photcarParams%tags(i)%key
+          END IF
+          IF (ASSOCIATED(photcarParams%tags(i)%spnt)) THEN
+             NULLIFY(photcarParams%tags(i)%spnt)
+             WRITE(*,'(A)') 'Nullified STRING POINTER to ',&
+                  photcarParams%tags(i)%key
+          END IF
        END IF
     END DO
   END SUBROUTINE parsePHOTCAR
