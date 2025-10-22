@@ -1,0 +1,17 @@
+EfieldAmp = 0.000001 # max/initial E-field amplitude
+
+timeStep = 0.01 # time step in fs
+
+omega = 0.38 # driving frequency of E-field
+
+RWA = .FALSE. # .TRUE. to utilize RWA, .FALSE. otherwise
+
+intScheme = 1 # integration scheme, 1=Euler, 2=Verlet, 3=Runge-Kutta 2nd order, 4=Runge-Kutta 4th order
+
+excitationE = 0.03 # resonant photonic energy of the resonator
+
+CHGint = 0 # interval to save CHG files. 0=don't save them
+
+maxSteps = 0 # maximum number of steps to take. 0=no limit. This is equivalent to NSW for standard MD runs in VASP
+
+VASPcmd = vasp_gam # VASP executable to run. vasp_gam, vasp_std, or vasp_ncl. Only vasp_gam is implemented as of yet

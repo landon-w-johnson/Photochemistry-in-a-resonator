@@ -6,7 +6,7 @@ PROGRAM UnnamedJank
   
   REAL(8), TARGET :: EfieldAmp, timeStep, omega, excitationE
   LOGICAL, TARGET :: RWA
-  INTEGER, TARGET :: itScheme, CHGint, maxSteps
+  INTEGER, TARGET :: intScheme, CHGint, maxSteps
   CHARACTER(LEN=:), ALLOCATABLE, TARGET :: VASPcmd
     
   
@@ -24,13 +24,13 @@ PROGRAM UnnamedJank
      TYPE(tagStruct), ALLOCATABLE :: tags (:)
   END TYPE photcarTags
 
-  CALL parsePHOTCAR(EfieldAmp, timeStep, omega, RWA, itScheme, excitationE, CHGint, maxSteps, VASPcmd)
+  CALL parsePHOTCAR(EfieldAmp, timeStep, omega, RWA, intScheme, excitationE, CHGint, maxSteps, VASPcmd)
 
   WRITE(*,'(T1,A,ES23.16E3)') 'EfieldAmp = ', EfieldAmp
   WRITE(*,'(T1,A,ES23.16E3)') 'timeStep = ', timeStep
   WRITE(*,'(T1,A,ES23.16E3)') 'omega = ', omega
   WRITE(*,'(T1,A,L1)') 'RWA = ', RWA
-  WRITE(*,'(T1,A,I0.1)') 'itScheme = ', itScheme
+  WRITE(*,'(T1,A,I0.1)') 'intScheme = ', intScheme
   WRITE(*,'(T1,A,ES23.16E3)') '', excitationE
   WRITE(*,'(T1,A,I0.1)') 'CHGint = ', CHGint
   WRITE(*,'(T1,A,I0.1)') 'maxSteps = ', maxSteps
@@ -101,15 +101,16 @@ CONTAINS
 
      
 
-  SUBROUTINE parsePHOTCAR(EfieldAmp, timeStep, omega, RWA, itScheme, excitationE, CHGint, maxSteps, VASPcmd)
+  SUBROUTINE parsePHOTCAR(EfieldAmp, timeStep, omega, RWA, intScheme, excitationE, CHGint, maxSteps, VASPcmd)
     REAL(8), INTENT(INOUT), TARGET :: EfieldAmp, timeStep, omega, excitationE
     LOGICAL, INTENT(INOUT), TARGET :: RWA
-    INTEGER, INTENT(INOUT), TARGET :: itScheme, CHGint, maxSteps
-    CHARACTER(LEN=*), INTENT(INOUT), TARGET :: VASPcmd
+    INTEGER, INTENT(INOUT), TARGET :: intScheme, CHGint, maxSteps
+    CHARACTER(LEN=:), ALLOCATABLE, INTENT(INOUT), TARGET :: VASPcmd
     
     INTEGER :: ioErr, fileSize, newLineCount, i, j, k, numTotalTags
     INTEGER :: startInd, endInd, commentInd, assignmentInd
-    CHARACTER(LEN=:), ALLOCATABLE :: photcarStr, tmpStr, tmpKey, tmpVal
+    CHARACTER(LEN=:), ALLOCATABLE :: photcarStr, tmpKey, tmpVal
+    CHARACTER(72) :: tmpStr
     INTEGER, ALLOCATABLE :: newLineIndices(:), tmpNewLineIndices(:)
 
     TYPE(photcarTags) :: photcarParams
@@ -155,7 +156,7 @@ CONTAINS
     timeStep = 0.01 ! time step in femptoseconds
     omega = 0.2 ! angular frequency of E-field amplitude in Hz*radians
     RWA = .FALSE. ! whether or not to use the rotating wave approximation
-    itScheme = 1 ! iteration scheme, e.g. 1=Euler, 2=Verlet, 3=RK2, or 4=RK4
+    intScheme = 1 ! integration scheme, e.g. 1=Euler, 2=Verlet, 3=RK2, or 4=RK4
     excitationE = 1 ! energy of the photons in atomic units
     CHGint = 0 ! time steps between saved CHG files. 0=don't save any
     maxSteps = 0 ! maximum number of time steps to calculate. 0=no maximum
@@ -169,23 +170,23 @@ CONTAINS
     ALLOCATE(photcarParams%tags(numTotalTags))
 
     ! Set keys for PHOTCAR parameters and associate the pointers to the values
-    photcarParams%tags(1)%key = "EfieldAmp"
+    photcarParams%tags(1)%key = 'EfieldAmp'
     photcarParams%tags(1)%rpnt => EfieldAmp
-    photcarParams%tags(2)%key = "timeStep"
+    photcarParams%tags(2)%key = 'timeStep'
     photcarParams%tags(2)%rpnt => timeStep
-    photcarParams%tags(3)%key = "omega"
+    photcarParams%tags(3)%key = 'omega'
     photcarParams%tags(3)%rpnt => omega
-    photcarParams%tags(4)%key = "RWA"
+    photcarParams%tags(4)%key = 'RWA'
     photcarParams%tags(4)%lpnt => RWA
-    photcarParams%tags(5)%key = "itScheme"
-    photcarParams%tags(5)%ipnt => itScheme
-    photcarParams%tags(6)%key = "excitationE"
+    photcarParams%tags(5)%key = 'intScheme'
+    photcarParams%tags(5)%ipnt => intScheme
+    photcarParams%tags(6)%key = 'excitationE'
     photcarParams%tags(6)%rpnt => excitationE
-    photcarParams%tags(7)%key = "CHGint"
+    photcarParams%tags(7)%key = 'CHGint'
     photcarParams%tags(7)%ipnt => CHGint
-    photcarParams%tags(8)%key = "maxSteps"
+    photcarParams%tags(8)%key = 'maxSteps'
     photcarParams%tags(8)%ipnt => maxSteps
-    photcarParams%tags(9)%key = "VASPcmd"
+    photcarParams%tags(9)%key = 'VASPcmd'
     photcarParams%tags(9)%spnt => VASPcmd
 
     ! Set vals to defaults !
@@ -254,7 +255,7 @@ CONTAINS
                         photcarParams%tags(k)%val)
                    EXIT
                 ELSE ! string
-                   CALL assingSTRING(&
+                   CALL assignSTRING(&
                         photcarParams%tags(k)%spnt,&
                         photcarParams%tags(k)%val)
                    EXIT
