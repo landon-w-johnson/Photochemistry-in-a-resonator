@@ -263,7 +263,7 @@
      $        assignmentInd.LT.commentInd) .OR.
      $        (assignmentInd.GT.0 .AND. commentInd.EQ.0)) THEN
             ! Break line into key and val !
-            ! if "=" is before "#" or "#" isn't in the line !
+            ! if "=" is before "#" or "#" is not in the line !
             tempKey = TRIM(ADJUSTL(
      $           photcarStr(startInd:startInd+assignmentInd-2)))
             IF (commentInd.EQ.0) THEN
