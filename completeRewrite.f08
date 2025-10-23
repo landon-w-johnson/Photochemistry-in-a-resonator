@@ -222,6 +222,10 @@ PROGRAM UnnamedJank
 
 
 
+  
+
+
+
 
   
 
@@ -670,7 +674,7 @@ CONTAINS
   
     
   
-  SUBROUTINE calcMom(npw, enMax, latticeVector, gxGrid, gyGrid, gzGrid, gMax, izMax,&
+  SUBROUTINE calcMom(enMax, latticeVector, gxGrid, gyGrid, gzGrid, gMax, izMax,&
        isym, xMom, yMom, zMom, totMom)
     IMPLICIT NONE
     
@@ -679,7 +683,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: isym
     REAL(8), INTENT(INOUT) :: gxGrid, gyGrid, gzGrid, gMax
     INTEGER, INTENT(INOUT) :: izMax
-    REAL(8), ALLOCATABLE, INTENT(OUT) :: xMom(:), yMom(:), zMom(:), totMom(:)
+    REAL(8), DIMENSION(*), INTENT(OUT) :: xMom(:), yMom(:), zMom(:), totMom(:)
 
     REAL(8), DIMENSION(3) :: lenLatVec
     INTEGER :: i, pw, x, y, z, iyMax, ixMax
