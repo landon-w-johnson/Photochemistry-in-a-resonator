@@ -24,7 +24,7 @@ PROGRAM UnnamedJank
   TYPE :: includedTransition
      INTEGER :: lb, ub ! lower band and upper band
      REAL(8) :: omega_0 ! resonant angular frequency of the transition
-     COMPLEX(4), DIMENSION(2,3) :: tdm ! transition dipole moment (up/down,axis)
+     COMPLEX(8), DIMENSION(2,3) :: tdm ! transition dipole moment (up/down,axis)
      ! NOTE: tdm is not literally the transition dipole moment !
      ! tdm(1,1) = <\psi_ub|p_x|\psi_lb>  and  tdm(2,1) = <\psi_lb|p_x|\psi_ub> !
   END TYPE INCLUDEDTRANSITION
@@ -92,7 +92,6 @@ PROGRAM UnnamedJank
   COMPLEX(8), ALLOCATABLE :: bCoefDown(:), d_bCoefDown(:)
   COMPLEX(8), ALLOCATABLE :: pertHam(:,:), pertHamDown(:,:)
   COMPLEX(8), ALLOCATABLE :: interBandInProd(:,:), interBandInProdDown(:,:)
-  COMPLEX(8), ALLOCATABLE :: interBandInProdNow(:,:), interBandInProdNowDown(:,:)
   REAL(8), ALLOCATABLE :: xMom(:), yMom(:), zMom(:), totMom(:)
   REAL(8), ALLOCATABLE :: kPts(:,:)
   COMPLEX(4), ALLOCATABLE :: pwCoefOld(:,:), pwCoefOldDown(:,:)
@@ -222,8 +221,6 @@ PROGRAM UnnamedJank
         ALLOCATE(tmpTransBandsDown(nb*(nb-1),2))
         ALLOCATE(interBandInProd(nb,nb))
         ALLOCATE(interBandInProdDown(nb,nb))
-        ALLOCATE(interBandInProdNow(nb,nb))
-        ALLOCATE(interBandInProdNowDown(nb,nb))
         
 
         
@@ -388,7 +385,8 @@ PROGRAM UnnamedJank
 
         WRITE(*,'(A)') 'SPIN-UP included transitions:'
         DO i = 1, numIncTrans
-           WRITE(*,'(A,I0.1,A,I0.1,A,F10.6,A,A,F10.6,A)') &
+           !WRITE(*,'(A,I0.1,A,I0.1,A,F10.6,A,A,F10.6,A)') &
+           WRITE(*,'(A,I0.1,A,I0.1,A,F10.6,A,A,F16.12,A)') &
                 '  ', trans(i)%lb, ' -> ', trans(i)%ub, ' : ', &
                 trans(i)%omega_0*au_to_eV, ' eV,', &
                 ' omega_0 = ', trans(i)%omega_0, ' a.u.'
@@ -523,12 +521,14 @@ PROGRAM UnnamedJank
            startTime = getTime()
            t = tInd*dt
            t_fs = t*au_to_fs
+           WRITE(*,*) ''
            WRITE(*,'(A,F10.3,A)') 't = ', t*au_to_fs, ' fs'
            WRITE(*,'(A)') '__________________________________________________'
+           WRITE(*,*) ''
            ! Calculate transition dipole momenta !
            WRITE(*,'(A)') 'Preparing SPIN-UP data'
            CALL readBandEnsAndPWcoefs(rl, nb, npw, nkp, numIncTrans, numIncBands, &
-                incBands, trans, pwCoefOld, pwCoefNew, interBandInProd, interBandInProdNow)
+                incBands, trans, pwCoefOld, pwCoefNew, interBandInProd)
            CALL calc_d_pwCoefs(dt, nb, npw, pwCoefOld, pwCoefNew, d_pwCoef)
            !CALL convertBandCoefs(nb, npw, pwCoefOld, pwCoefNew, bCoef)
            CALL calcTransDipMom(trans, numIncTrans, npw, xMom, yMom, zMom, pwCoefNew)
@@ -538,8 +538,8 @@ PROGRAM UnnamedJank
            WRITE(*,*) pertHam
            WRITE(*,'(A)') 'SPIN-UP transition dipole moments:'
            DO i = 1, numIncTrans
-              WRITE(*,'(A,I0.1,A,I0.1)') '  ', trans(i)%lb, ' -> ', trans(i)%ub
               WRITE(*,'(A,F10.6,A)') 'omega_0 = ', trans(i)%omega_0, ' a.u.'
+              WRITE(*,'(A,I0.1,A,I0.1)') '  ', trans(i)%lb, ' -> ', trans(i)%ub
               WRITE(*,dipoleFmt) '    1: ', trans(i)%tdm(1,1)
               WRITE(*,dipoleFmt) '    2: ', trans(i)%tdm(1,2)
               WRITE(*,dipoleFmt) '    3: ', trans(i)%tdm(1,3)
@@ -552,7 +552,7 @@ PROGRAM UnnamedJank
            WRITE(*,'(A)') 'Preparing SPIN-DOWN data'
            CALL readBandEnsAndPWcoefsDOWN(rl, nb, npw, nkp, numIncTransDown, &
                 numIncBandsDown, incBandsDown, transDown, &
-                pwCoefOldDown, pwCoefNewDown, interBandInProdDown, interBandInProdNowDown)
+                pwCoefOldDown, pwCoefNewDown, interBandInProdDown)
            !CALL convertBandCoefs(nb, npw, pwCoefOldDown, pwCoefNewDown, bCoefDown)
            CALL calc_d_pwCoefs(dt, nb, npw, pwCoefOldDown, pwCoefNewDown, d_pwCoefDown)
            CALL calcTransDipMom(transDown, numIncTransDown, npw, xMom, yMom, zMom, pwCoefNewDown)
@@ -562,8 +562,8 @@ PROGRAM UnnamedJank
            WRITE(*,*) pertHamDown
            WRITE(*,'(A)') 'SPIN-DOWN transition dipole moments:'
            DO i = 1, numIncTransDown
-              WRITE(*,'(A,I0.1,A,I0.1)') '  ', transDown(i)%lb, ' -> ', transDown(i)%ub
               WRITE(*,'(A,F10.6,A)') 'omega_0 = ', transDown(i)%omega_0, ' a.u.'
+              WRITE(*,'(A,I0.1,A,I0.1)') '  ', transDown(i)%lb, ' -> ', transDown(i)%ub
               WRITE(*,dipoleFmt) '    1: ', transDown(i)%tdm(1,1)
               WRITE(*,dipoleFmt) '    2: ', transDown(i)%tdm(1,2)
               WRITE(*,dipoleFmt) '    3: ', transDown(i)%tdm(1,3)
@@ -618,7 +618,7 @@ PROGRAM UnnamedJank
            DO i = 1, numIncTrans
               CALL calc_d_bCoefs_2band(nb, npw, t, omega, bCoef, bandEn, &
                    pertHam, d_pwCoef, pwCoefNew, d_bCoef, &
-                   trans(i), interBandInProdNow)
+                   trans(i), interBandInProd)
            END DO
            WRITE(*,*) ''
            !DO i = 1, numIncTransDown
@@ -652,32 +652,50 @@ PROGRAM UnnamedJank
            !   WRITE(*,*) ''
            !END DO
            WRITE(*,'(A)') 'Calculating SPIN-DOWN d_bCoefs'
-           DO i = 1, numIncBandsDown
-              CALL calc_d_bCoefs(nb, npw, t, omega, incBandsDown(i), bCoefDown, &
-                   bandEnDown, pertHamDown, d_pwCoefDown, &
-                   pwCoefNewDown, d_bCoefDown(incBandsDown(i)))
-           END DO
+           !DO i = 1, numIncBandsDown
+           !   CALL calc_d_bCoefs(nb, npw, t, omega, incBandsDown(i), bCoefDown, &
+           !        bandEnDown, pertHamDown, d_pwCoefDown, &
+           !        pwCoefNewDown, d_bCoefDown(incBandsDown(i)))
+           !END DO
            WRITE(*,*) ''
            ! Actually update band expansion coefficients !
            SELECT CASE (intScheme)
            CASE(1) ! Euler !
-              DO i = 1, numIncBands
-                 WRITE(*,*) 'bCoef before update:', bCoef(incBands(i))
-                 WRITE(*,*) 'd_bCoef before update:', d_bCoef(incBands(i))
-                 bCoef(incBands(i)) = bCoef(incBands(i)) + dt*d_bCoef(incBands(i))
-                 WRITE(*,'(A,I0.1,A,ES23.15E3,",",ES23.15E3,")")') &
-                      'bCoef(', incBands(i), ') = (', bCoef(incBands(i))
+!!!!!!!!!!!!!!!!!!!! MODIFICATION !!!!!!!!!!!!!!!!!!!!
+              IF (tInd==0) THEN
+                 WRITE(*,*) 'special first step update...'
                  WRITE(*,*) ''
-              END DO
-              DO i = 1, numIncBandsDown
-                 WRITE(*,*) 'bCoefDown before update:', bCoefDown(incBandsDown(i))
-                 WRITE(*,*) 'd_bCoefDown before update:', d_bCoefDown(incBandsDown(i))
-                 bCoefDown(incBandsDown(i)) = bCoefDown(incBandsDown(i)) + &
-                      dt*d_bCoefDown(incBandsDown(i))
+                 WRITE(*,*) 'bCoef upper before update:', bCoef(trans(1)%ub)
+                 WRITE(*,*) 'd_bCoef upper before update:', d_bCoef(trans(1)%ub)
+                 bCoef(trans(1)%ub) = bCoef(trans(1)%ub) + dt*d_bCoef(trans(1)%ub)
                  WRITE(*,'(A,I0.1,A,ES23.15E3,",",ES23.15E3,")")') &
-                      'bCoefDown(', incBandsDown(i), ') = (', bCoefDown(incBandsDown(i))
+                      'bCoef(', trans(1)%ub, ') = (', bCoef(trans(1)%ub)
                  WRITE(*,*) ''
-              END DO
+                 WRITE(*,*) 'bCoef lower before update:', bCoef(trans(1)%lb)
+                 bCoef(trans(1)%lb) = SQRT( (1,0) - bCoef(trans(1)%ub)*CONJG(bCoef(trans(1)%ub)) )
+                 WRITE(*,'(A,I0.1,A,ES23.15E3,",",ES23.15E3,")")') &
+                      'bCoef(', trans(1)%lb, ') = (', bCoef(trans(1)%lb)
+                 WRITE(*,*) ''
+              ELSE
+!!!!!!!!!!!!!!!!!!!! END MODIFICATION !!!!!!!!!!!!!!!!!!!!
+                 DO i = 1, numIncBands
+                    WRITE(*,*) 'bCoef before update:', bCoef(incBands(i))
+                    WRITE(*,*) 'd_bCoef before update:', d_bCoef(incBands(i))
+                    bCoef(incBands(i)) = bCoef(incBands(i)) + dt*d_bCoef(incBands(i))
+                    WRITE(*,'(A,I0.1,A,ES23.15E3,",",ES23.15E3,")")') &
+                         'bCoef(', incBands(i), ') = (', bCoef(incBands(i))
+                    WRITE(*,*) ''
+                 END DO
+                 DO i = 1, numIncBandsDown
+                    WRITE(*,*) 'bCoefDown before update:', bCoefDown(incBandsDown(i))
+                    WRITE(*,*) 'd_bCoefDown before update:', d_bCoefDown(incBandsDown(i))
+                    bCoefDown(incBandsDown(i)) = bCoefDown(incBandsDown(i)) + &
+                         dt*d_bCoefDown(incBandsDown(i))
+                    WRITE(*,'(A,I0.1,A,ES23.15E3,",",ES23.15E3,")")') &
+                         'bCoefDown(', incBandsDown(i), ') = (', bCoefDown(incBandsDown(i))
+                    WRITE(*,*) ''
+                 END DO
+              END IF
               WRITE(*,*) ''
            CASE(2) ! Verlet !
               WRITE(*,'(A)') 'Verlet not implemented yet.'
@@ -729,17 +747,19 @@ PROGRAM UnnamedJank
            CLOSE(12)
            endTime = getTime()
            runTime = endTime-startTime
+           WRITE(*,*) ''
            WRITE(*,'(A,I0.1,A)') 'FORTRAN runtime: ', runTime, ' ms'
            WRITE(*,*) ''
            
            ! Run VASP !
            startTime = getTime()
-           CALL EXECUTE_COMMAND_LINE( &
-                'mpiexec -machinefile $PBS_NODEFILE -np $NUM_PROC '//VASPcmd, &
-                EXITSTAT=vaspStat) ! CCAST
-           !CALL EXECUTE_COMMAND_LINE('srun -n 64 '//VASPcmd, &
-           !     EXITSTAT=vaspStat) ! NERSC
-           !CALL SYSTEM('echo "pretending to run VASP"')
+           !CALL EXECUTE_COMMAND_LINE( &
+           !     'mpiexec -machinefile $PBS_NODEFILE -np $NUM_PROC '// &
+           !     VASPcmd, EXITSTAT=vaspStat) ! CCAST
+           !CALL EXECUTE_COMMAND_LINE( &
+           !     'srun -n 64 '//VASPcmd, EXITSTAT=vaspStat) ! NERSC
+           CALL EXECUTE_COMMAND_LINE(VASPcmd, EXITSTAT=vaspStat) ! Trion
+           !CALL SYSTEM('echo pretending to run VASP')
            endTime = getTime()
            runTime = endTime-startTime
            WRITE(*,*) ''
@@ -1297,18 +1317,20 @@ CONTAINS
        lenLatVec(i) = SQRT(latticeVector(i,1)**2&
             +latticeVector(i,2)**2&
             +latticeVector(i,3)**2)
+       WRITE(*,*) 'lenLatVec', i, ':', lenLatVec(i)
     END DO
+    WRITE(*,*) ''
     
     gxGrid = 2*pi/(lenLatVec(1)*angstroms_to_au)
     gyGrid = 2*pi/(lenLatVec(2)*angstroms_to_au)
     gzGrid = 2*pi/(lenLatVec(3)*angstroms_to_au)
-    WRITE(*,'(A,F18.4)') 'gxGrid = ', gxGrid
-    WRITE(*,'(A,F18.4)') 'gyGrid = ', gyGrid
-    WRITE(*,'(A,F18.4)') 'gzGrid = ', gzGrid
+    WRITE(*,'(A,F18.14)') 'gxGrid = ', gxGrid
+    WRITE(*,'(A,F18.14)') 'gyGrid = ', gyGrid
+    WRITE(*,'(A,F18.14)') 'gzGrid = ', gzGrid
     WRITE(*,*) ''
     
     gMax = SQRT((2*m/hbar**2)*enMax*eV_to_au)
-    WRITE(*, '(A,F18.4)') 'gMax = ', gMax
+    WRITE(*, '(A,F18.14)') 'gMax = ', gMax
     WRITE(*,*) ''
     
     izMax = INT(gMax/gzGrid)
@@ -1352,6 +1374,7 @@ CONTAINS
                 xMom(pw) = gx
                 yMom(pw) = gy
                 zMom(pw) = gz
+                !WRITE(*,*) 'pw#', pw, 'gx=', gx, 'gy=', gy, 'gz=', gz
                 totMom(pw) = SQRT(gx**2 + gy**2 + gz**2)
              END DO
           END DO
@@ -1470,6 +1493,7 @@ CONTAINS
     WRITE(*,*) 'sin = ', SIN(dt*(transition%omega_0-omega)/2)
     WRITE(*,*) 'sin^2 = ', SIN(dt*(transition%omega_0-omega)/2)**2
     WRITE(*,*) 'sin^2/stuff^2 = ', (SIN(dt*(transition%omega_0-omega)/2)/(dt*(transition%omega_0-omega)/2))**2
+    WRITE(*,*) ''
 
     d_bCoef0 = d_bCoef0 + (q*EfieldAmp/(m*(bandEn0-bandEnNOT0)))* &
          COS(omega*t)*transition%tdm(upOrDown,polDir)* &
@@ -1482,6 +1506,7 @@ CONTAINS
     WRITE(*,*) 'bCoefNOT0 = ', bCoefNOT0
     WRITE(*,*) 'l = ', l
     WRITE(*,*) '(dt**2)*|d_bCoef0|^2 = ', (dt**2)*bSq
+    WRITE(*,*) ''
 
     IF (l > 0) THEN
        d_bCoefNOT0 = d_bCoefNOT0 + (-l + SQRT(l**2-(dt**2)*bSq))/dt
@@ -1551,8 +1576,8 @@ CONTAINS
        WRITE(*,*) pwProd
        WRITE(*,'(A,I0.1,A)') 'contribution to d_bCoef from band ', i, ':'
        WRITE(*,*) -be*((im/hbar)*pertHam(i,band) + pwProd)
+       WRITE(*,*) ''
     END DO
-    WRITE(*,*) ''
     WRITE(*,'(A,I0.1,A)') 'd_bCoef(', band, '):'
     WRITE(*,*) d_bCoef
     WRITE(*,*) ''
@@ -1563,7 +1588,7 @@ CONTAINS
 
 
   SUBROUTINE calc_d_bCoefs_2band(nb, npw, t, omega, bCoef, bandEn, &
-       pertHam, d_pwCoef, pwCoef, d_bCoef, trans, interBandInProdNow)
+       pertHam, d_pwCoef, pwCoef, d_bCoef, trans, interBandInProd)
     IMPLICIT NONE
 
     INTEGER, INTENT(IN) :: nb, npw
@@ -1574,7 +1599,7 @@ CONTAINS
     COMPLEX(4), DIMENSION(*), INTENT(IN) :: pwCoef(:,:)
     COMPLEX(8), DIMENSION(*), INTENT(OUT) :: d_bCoef
     TYPE(includedTransition), INTENT(IN) :: trans
-    COMPLEX(8), DIMENSION(*), INTENT(IN) :: interBandInProdNow(:,:)
+    COMPLEX(8), DIMENSION(*), INTENT(IN) :: interBandInProd(:,:)
 
     INTEGER :: i, j
     COMPLEX(8) :: be, pwProd_lb, pwProd_ub, pwDiff_lb, pwDiff_ub
@@ -1583,20 +1608,18 @@ CONTAINS
 
     WRITE(*,'(A,I0.1,A,I0.1)') 'transition: ', trans%lb, ' <-> ', trans%ub
 
-    s11s22_minus_s12s21 = interBandInProdNow(trans%lb,trans%lb)* &
-         interBandInProdNow(trans%ub,trans%ub) - &
-         interBandInProdNow(trans%lb,trans%ub)* &
-         interBandInProdNow(trans%ub,trans%lb)
-    WRITE(*,'(A)') 's11s22_minus_s12s21:'
-    WRITE(*,*) s11s22_minus_s12s21
+    s11s22_minus_s12s21 = interBandInProd(trans%lb,trans%lb)* &
+         interBandInProd(trans%ub,trans%ub) - &
+         interBandInProd(trans%lb,trans%ub)* &
+         interBandInProd(trans%ub,trans%lb)
 
     pwDiff_lb = 0
     pwDiff_ub = 0
     DO j = 1,npw
-       pwDiff_lb = CONJG(pwCoef(trans%lb,j))*interBandInProdNow(trans%ub,trans%ub) - &
-            CONJG(pwCoef(trans%ub,j))*interBandInProdNow(trans%ub,trans%lb)
-       pwDiff_ub = CONJG(pwCoef(trans%ub,j))*interBandInProdNow(trans%lb,trans%lb) - &
-            CONJG(pwCoef(trans%lb,j))*interBandInProdNow(trans%lb,trans%ub)
+       pwDiff_lb = CONJG(pwCoef(trans%lb,j))*interBandInProd(trans%ub,trans%ub) - &
+            CONJG(pwCoef(trans%ub,j))*interBandInProd(trans%ub,trans%lb)
+       pwDiff_ub = CONJG(pwCoef(trans%ub,j))*interBandInProd(trans%lb,trans%lb) - &
+            CONJG(pwCoef(trans%lb,j))*interBandInProd(trans%lb,trans%ub)
     END DO
     
     DO i = 1, nb
@@ -1611,8 +1634,8 @@ CONTAINS
           pwProd_lb = pwProd_lb + d_pwCoef(i,j)*pwDiff_lb
           pwProd_ub = pwProd_ub + d_pwCoef(i,j)*pwDiff_ub
        END DO
-       WRITE(*,'(A,I0.1,A)') 'be(', i, '):'
-       WRITE(*,*) be
+       !WRITE(*,'(A,I0.1,A)') 'be(', i, '):'
+       !WRITE(*,*) be
        !WRITE(*,'(A,I0.1,A)') 'pwProd(', i, '):'
        !WRITE(*,*) pwProd
        !WRITE(*,'(A,I0.1,A)') 'contribution to d_bCoef from band ', i, ':'
@@ -1622,50 +1645,56 @@ CONTAINS
     db_lb = 0
     db_ub = 0
     db_lb = db_lb - be*pwProd_lb
-    WRITE(*,*) ''
-    WRITE(*,'(A)') 'db_lb after be:'
+    WRITE(*,*) 'db_lb after subtracting be*pwProd:'
     WRITE(*,*) db_lb
+    WRITE(*,*) ''
     db_lb = db_lb - &
-         (im/hbar)*interBandInProdNow(trans%ub,trans%ub)* &
+         (im/hbar)*interBandInProd(trans%ub,trans%ub)* &
          EXP(im*(bandEn(trans%lb)-bandEn(trans%ub))*ev_to_au*t/hbar)* &
          bCoef(trans%ub)*pertHam(trans%ub,trans%lb)
-    WRITE(*,'(A)') 'db_lb after term2:'
+    WRITE(*,*) 'db_lb after subtracting stuff*bCoef(upper):'
     WRITE(*,*) db_lb
+    WRITE(*,*) ''
     db_lb = db_lb + &
          (im/hbar)*bCoef(trans%lb)*pertHam(trans%lb,trans%ub)* &
-         interBandInProdNow(trans%ub,trans%lb)
-    WRITE(*,'(A)') 'db_lb after term3:'
+         interBandInProd(trans%ub,trans%lb)
+    WRITE(*,*) 'db_lb after adding stuff*bCoef(lower):'
     WRITE(*,*) db_lb
+    WRITE(*,*) ''
     db_lb = db_lb/s11s22_minus_s12s21
-    WRITE(*,'(A)') 'db_lb after dividing:'
+    WRITE(*,*) 'db_lb after dividing by nonorthonormality:'
     WRITE(*,*) db_lb
-    db_lb = db_lb*(SIN(dt*(trans%omega_0-omega)/2)/(dt*(trans%omega_0-omega)/2))**2
-    WRITE(*,'(A)') 'db_lb after detuning:'
-    WRITE(*,*) db_lb
-    d_bCoef(trans%lb) = d_bCoef(trans%lb) + db_lb
+    WRITE(*,*) ''
+    d_bCoef(trans%lb) = d_bCoef(trans%lb) + db_lb!* &
+         !(SIN(dt*(trans%omega_0-omega)/2)/(dt*(trans%omega_0-omega)/2))**2
 
     db_ub = db_ub - be*pwProd_ub
+    WRITE(*,*) 'im/hbar =', im/hbar
+    WRITE(*,*) 'exp =', EXP(im*(bandEn(trans%ub)-bandEn(trans%lb))*ev_to_au*t/hbar)
+    WRITE(*,*) 'bCoef(lower) =', bCoef(trans%lb)
     WRITE(*,*) ''
-    WRITE(*,'(A)') 'db_ub after be:'
+    WRITE(*,*) 'db_ub after subtracting be*pwProd:'
     WRITE(*,*) db_ub
+    WRITE(*,*) ''
     db_ub = db_ub - &
-         (im/hbar)*interBandInProdNow(trans%lb,trans%lb)* &
+         (im/hbar)*&!interBandInProd(trans%lb,trans%lb)* &
          EXP(im*(bandEn(trans%ub)-bandEn(trans%lb))*ev_to_au*t/hbar)* &
          bCoef(trans%lb)*pertHam(trans%lb,trans%ub)
-    WRITE(*,'(A)') 'db_ub after term2:'
+    WRITE(*,*) 'db_ub after subtracting stuff*bCoef(lower):'
     WRITE(*,*) db_ub
+    WRITE(*,*) ''
     db_ub = db_ub + &
          (im/hbar)*bCoef(trans%ub)*pertHam(trans%ub,trans%lb)* &
-         interBandInProdNow(trans%lb,trans%ub)
-    WRITE(*,'(A)') 'db_ub after term3:'
+         interBandInProd(trans%lb,trans%ub)
+    WRITE(*,*) 'db_ub after adding stuff*bCoef(upper):'
     WRITE(*,*) db_ub
+    WRITE(*,*) ''
     db_ub = db_ub/s11s22_minus_s12s21
-    WRITE(*,'(A)') 'db_ub after dividing:'
+    WRITE(*,*) 'db_ub after dividing by nonorthonormality:'
     WRITE(*,*) db_ub
-    db_ub = db_ub*(SIN(dt*(trans%omega_0-omega)/2)/(dt*(trans%omega_0-omega)/2))**2
-    WRITE(*,'(A)') 'db_ub after detuning:'
-    WRITE(*,*) db_ub
-    d_bCoef(trans%ub) = d_bCoef(trans%ub) + db_ub
+    WRITE(*,*) ''
+    d_bCoef(trans%ub) = d_bCoef(trans%ub) + db_ub!* &
+         !(SIN(dt*(trans%omega_0-omega)/2)/(dt*(trans%omega_0-omega)/2))**2
     WRITE(*,*) ''
     WRITE(*,'(A,I0.1,A)') 'd_bCoef(', trans%lb, '):'
     WRITE(*,*) d_bCoef(trans%lb)
@@ -1715,6 +1744,13 @@ CONTAINS
     INTEGER :: i
 
     DO i = 1, numIncTrans
+       WRITE(*,*) 'q =', q
+       WRITE(*,*) 'im =', im
+       WRITE(*,*) 'EfieldAmp =', EfieldAmp
+       WRITE(*,*) 'm =', m
+       WRITE(*,*) 'omega_0 =', trans(i)%omega_0
+       WRITE(*,*) 'cos(wt) =', COS(omega*t)
+       WRITE(*,*) 'tdm =', trans(i)%tdm(1,polDir)
        pertHam(trans(i)%lb,trans(i)%ub) = (q*im*EfieldAmp/(m*trans(i)%omega_0))* &
             COS(omega*t)*trans(i)%tdm(1,polDir) ! H'_if
        pertHam(trans(i)%ub,trans(i)%lb) = -(q*im*EfieldAmp/(m*trans(i)%omega_0))* &
@@ -1725,8 +1761,8 @@ CONTAINS
        WRITE(*,'(A,I0.1,A,I0.1,A)') &
             'pertHam(', trans(i)%ub, ',', trans(i)%lb, '):'
        WRITE(*,*) pertHam(trans(i)%ub,trans(i)%lb)
+       WRITE(*,*) ''
     END DO
-    WRITE(*,*) ''
   END SUBROUTINE calc_pertHam
 
 
@@ -1748,14 +1784,14 @@ CONTAINS
 
 
   SUBROUTINE readBandEnsAndPWcoefs(rl, nb, npw, nkp, numIncTrans, numIncBands, &
-       incBands, trans, pwCoefOld, pwCoefNew, interBandInProd, interBandInProdNow)
+       incBands, trans, pwCoefOld, pwCoefNew, interBandInProd)
     IMPLICIT NONE
 
     INTEGER, INTENT(IN) :: rl, nb, npw, nkp, numIncTrans, numIncBands
     INTEGER, DIMENSION(*), INTENT(IN) :: incBands(:)
     TYPE(includedTransition), DIMENSION(*), INTENT(INOUT) :: trans(:)
     COMPLEX(4), DIMENSION(*), INTENT(OUT) :: pwCoefOld(:,:), pwCoefNew(:,:)
-    COMPLEX(8), DIMENSION(*), INTENT(INOUT) :: interBandInProd(:,:), interBandInProdNow(:,:)
+    COMPLEX(8), DIMENSION(*), INTENT(INOUT) :: interBandInProd(:,:)
     
     INTEGER :: i, j, k
     REAL(8) :: tmpNumPW
@@ -1800,19 +1836,15 @@ CONTAINS
     DO i = 1, numIncBands
        DO j = 1, numIncBands
           interBandInProd(i,j) = 0
-          interBandInProdNow(i,j) = 0
           DO k = 1, npw
              interBandInProd(i,j) = interBandInProd(i,j) + &
                   pwCoefOld(incBands(i),k)*CONJG(pwCoefNew(incBands(j),k))
-             interBandInProdNow(i,j) = interBandInProdNow(i,j) + &
-                  pwCoefNew(incBands(i),k)*CONJG(pwCoefNew(incBands(j),k))
           END DO
           WRITE(*,'(A,I0.1,A,I0.1,A,"(",ES23.15E3,",",ES23.15E3,")")') &
                'interBandInProd(', incBands(i), ',', incBands(j), ') = ', interBandInProd(i,j)
-          WRITE(*,'(A,I0.1,A,I0.1,A,"(",ES23.15E3,",",ES23.15E3,")")') &
-               'interBandInProdNow(', incBands(i), ',', incBands(j), ') = ', interBandInProdNow(i,j)
           absInProd(j) = ABS(interBandInProd(i,j))
           WRITE(*,'(A,ES23.15E3)') '  Absolute value = ', absInProd(j)
+          WRITE(*,*) ''
        END DO
        bandMap(i) = MAXLOC(absInProd, DIM=1)
     END DO
@@ -1861,14 +1893,14 @@ CONTAINS
 
 
   SUBROUTINE readBandEnsAndPWcoefsDOWN(rl, nb, npw, nkp, numIncTrans, numIncBands, &
-       incBands, trans, pwCoefOld, pwCoefNew, interBandInProd, interBandInProdNow)
+       incBands, trans, pwCoefOld, pwCoefNew, interBandInProd)
     IMPLICIT NONE
     
     INTEGER, INTENT(IN) :: rl, nb, npw, nkp, numIncTrans, numIncBands
     INTEGER, DIMENSION(*), INTENT(IN) :: incBands(:)
     TYPE(includedTransition), DIMENSION(*), INTENT(INOUT) :: trans(:)
     COMPLEX(4), DIMENSION(*), INTENT(OUT) :: pwCoefOld(:,:), pwCoefNew(:,:)
-    COMPLEX(8), DIMENSION(*), INTENT(INOUT) :: interBandInProd(:,:), interBandInProdNow(:,:)
+    COMPLEX(8), DIMENSION(*), INTENT(INOUT) :: interBandInProd(:,:)
     
     INTEGER :: i, j, k
     REAL(8) :: tmpNumPW
@@ -1912,17 +1944,12 @@ CONTAINS
     DO i = 1, numIncBands
        DO j = 1, numIncBands
           interBandInProd(i,j) = 0
-          interBandInProdNow(i,j) = 0
           DO k = 1, npw
              interBandInProd(i,j) = interBandInProd(i,j) + &
                   pwCoefOld(incBands(i),k)*CONJG(pwCoefNew(incBands(j),k))
-             interBandInProdNow(i,j) = interBandInProdNow(i,j) + &
-                  pwCoefNew(incBands(i),k)*CONJG(pwCoefNew(incBands(j),k))
           END DO
           WRITE(*,'(A,I0.1,A,I0.1,A,"(",ES23.15E3,",",ES23.15E3,")")') &
                'interBandInProdDown(', incBands(i), ',', incBands(j), ') = ', interBandInProd(i,j)
-          WRITE(*,'(A,I0.1,A,I0.1,A,"(",ES23.15E3,",",ES23.15E3,")")') &
-               'interBandInProdNowDown(', incBands(i), ',', incBands(j), ') = ', interBandInProdNow(i,j)
        END DO
     END DO
     
